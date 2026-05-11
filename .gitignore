@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Runtime products (will be regenerated)
+data/
+output/
+
+# Local deployment env
+configs/deploy.env
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+
+# Framework submodules (managed separately)
+framework/ROLL/
