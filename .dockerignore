@@ -1,0 +1,11 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+data
+output
+docker_volumes
+*.swp
+.DS_Store
+node_modules

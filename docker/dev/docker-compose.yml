@@ -1,0 +1,18 @@
+services:
+  dev:
+    build:
+      context: ../..
+      dockerfile: docker/dev/Dockerfile
+    image: qwen3-tom-dev:latest
+    working_dir: /workspace
+    volumes:
+      - ../../scripts:/workspace/scripts
+      - ../../data:/workspace/data
+      - ../../output:/workspace/output
+      - ../../configs:/workspace/configs
+      - ../../framework:/workspace/framework
+      - ../../docs:/workspace/docs
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      PYTHONPATH: /workspace
