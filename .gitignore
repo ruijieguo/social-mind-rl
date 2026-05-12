@@ -23,7 +23,22 @@ configs/deploy.env
 *.swp
 
 # Framework submodules (managed separately)
-framework/ROLL/
+# Ignore everything in framework/ROLL by default, with specific exceptions
+# for our custom additions (worker + test). We descend into the tree using
+# directory exceptions, then re-ignore "everything else" at each level.
+framework/ROLL/*
+!framework/ROLL/roll/
+framework/ROLL/roll/*
+!framework/ROLL/roll/pipeline/
+framework/ROLL/roll/pipeline/*
+!framework/ROLL/roll/pipeline/rlvr/
+framework/ROLL/roll/pipeline/rlvr/*
+!framework/ROLL/roll/pipeline/rlvr/rewards/
+framework/ROLL/roll/pipeline/rlvr/rewards/*
+!framework/ROLL/roll/pipeline/rlvr/rewards/tom_mcq_reward_worker.py
+!framework/ROLL/tests/
+framework/ROLL/tests/*
+!framework/ROLL/tests/test_tom_mcq_reward.py
 
 # Eval cache
 output/eval_cache/
