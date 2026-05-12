@@ -1,0 +1,30 @@
+services:
+  train:
+    build:
+      context: ../..
+      dockerfile: docker/train/Dockerfile
+    image: qwen3-tom-train:latest
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace
+      - ${TRAIN_DATA_DIR:-/data/cpfs_0/tom-data}:/mnt/data
+      - ${TRAIN_MODELS_DIR:-/data/cpfs_0/models}:/mnt/models
+      - ${TRAIN_OUTPUT_DIR:-/data/cpfs_0/tom-output}:/mnt/output
+    environment:
+      STAGE: ${STAGE:-stage1}
+      USE_MODELSCOPE: '1'
+      PYTHONPATH: /workspace:/workspace/framework/ROLL
+      HF_HOME: /mnt/models/.cache/huggingface
+      MODELSCOPE_CACHE: /mnt/models/.cache/modelscope
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    shm_size: 64gb
