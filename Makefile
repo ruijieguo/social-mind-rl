@@ -4,9 +4,11 @@ SHELL := /usr/bin/env bash
 -include configs/deploy.env
 export
 
+TRAIN_HOST_HOSTONLY = $(shell echo "$(TRAIN_HOST)" | sed 's/.*@//')
+
 .PHONY: help env-check build-data baseline sync-up sync-down \
         train-stage1 train-stage2 train-stage3-l3 \
-        serve-launch serve-stop eval-final analyze \
+        serve-launch serve-stop serve-url eval-final analyze \
         pipeline-stage1 pipeline-stage2 pipeline-l3 \
         test-reward test-eval test-data
 
@@ -84,6 +86,13 @@ serve-launch: ## Launch vLLM serve container on TRAIN
 serve-stop: ## Stop vLLM serve container on TRAIN
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/serve/docker-compose.yml down"
+
+serve-url: ## Print the OpenAI-compatible base_url to use for eval
+	@echo "Base URL: http://$(TRAIN_HOST_HOSTONLY):$(SERVE_PORT)/v1"
+	@echo "Model id: qwen3-8b-tom"
+	@echo
+	@echo "Test:"
+	@echo "  curl http://$(TRAIN_HOST_HOSTONLY):$(SERVE_PORT)/v1/models"
 
 # ============================================================
 # DEV evaluation of trained model
