@@ -1,4 +1,4 @@
-"""Build ~1k records from SimpleToM (allenai/simpletom)."""
+"""Build ~1k records from SimpleToM (allenai/SimpleToM)."""
 from __future__ import annotations
 import random
 from pathlib import Path
@@ -9,28 +9,44 @@ from datasets import load_dataset
 from scripts.data.schema import TomRecord
 
 
-def _transform_to_mcq(row: dict, idx: int) -> TomRecord | None:
-    """SimpleToM has yes/no behavior-prediction; convert to 4-MCQ with synonyms."""
-    story = row.get("story") or row.get("context") or ""
-    question = row.get("question") or row.get("mental_state_question") or ""
-    gold_bool = row.get("answer") or row.get("label")  # boolean or "yes"/"no"
-    if isinstance(gold_bool, bool):
-        gold_yes = gold_bool
-    elif isinstance(gold_bool, str):
-        gold_yes = gold_bool.lower().startswith("y")
-    else:
+# Per-config canonical distractor pool, used to expand 2-option (A/B) into
+# a 4-option MCQ. Original options remain at indices 0,1; distractors fill 2,3
+# then the four options are shuffled and the gold letter is recomputed.
+_DISTRACTOR_POOLS = {
+    "mental-state-qa":  ["Cannot be determined from the story", "Both yes and no"],
+    "behavior-qa":      ["Refuse to act and stand still", "Ask someone else for help"],
+    "judgment-qa":      ["Mostly reasonable but with minor concerns", "Cannot be judged from the story"],
+}
+
+
+def _transform_to_mcq(row: dict, idx: int, distractors: list[str], task_tag: str) -> TomRecord | None:
+    story = row.get("story", "")
+    question = row.get("question", "")
+    choices = row.get("choices") or {}
+    texts = choices.get("text") if isinstance(choices, dict) else None
+    labels = choices.get("label") if isinstance(choices, dict) else None
+    gold_label = row.get("answerKey", "")
+    if not (story and question and texts and labels and gold_label in {"A", "B"}):
         return None
-    # 4 options for a yes/no flavor
-    opts = ["Yes, they will", "No, they will not", "Cannot be determined", "Both yes and no"]
-    gold_letter = "A" if gold_yes else "B"
-    if not story or not question:
+    if len(texts) < 2:
         return None
+
+    # Build a 4-option pool: original two + 2 distractors
+    opts4 = [texts[0], texts[1], distractors[0], distractors[1]]
+    gold_idx = labels.index(gold_label)  # 0 or 1
+    rng = random.Random(idx)
+    order = list(range(4))
+    rng.shuffle(order)
+    new_opts = [opts4[j] for j in order]
+    new_gold = "ABCD"[order.index(gold_idx)]
+
     return TomRecord(
-        question_id=f"simpletom_{idx}",
+        question_id=f"simpletom_{task_tag}_{idx}",
         source="simpletom", language="en", task="Other",
         story=story, question=question,
-        opt_a=opts[0], opt_b=opts[1], opt_c=opts[2], opt_d=opts[3],
-        gold=gold_letter,
+        opt_a=new_opts[0], opt_b=new_opts[1],
+        opt_c=new_opts[2], opt_d=new_opts[3],
+        gold=new_gold,
     )
 
 
@@ -39,22 +55,25 @@ def main():
     out = Path("data/tom/raw/simpletom.jsonl")
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        ds = load_dataset("allenai/SimpleToM", split="test", trust_remote_code=True)
-    except Exception as e:
-        print(f"SimpleToM not available via HF datasets: {e}")
-        print("Skipping SimpleToM source; merge_and_dedupe will fall back to other sources.")
-        with jsonlines.open(out, "w") as w:
-            pass
-        return
-
     records: list[TomRecord] = []
-    for i, row in enumerate(ds.shuffle(seed=42).select(range(min(1500, len(ds))))):
-        if len(records) >= 1000:
-            break
-        rec = _transform_to_mcq(row, i)
-        if rec is not None:
-            records.append(rec)
+    # Load all three QA configs; story-data is descriptive metadata, skip it.
+    for cfg in ["mental-state-qa", "behavior-qa", "judgment-qa"]:
+        try:
+            ds = load_dataset("allenai/SimpleToM", cfg, split="test")
+        except Exception as e:
+            print(f"SimpleToM cfg={cfg} unavailable: {e}")
+            continue
+        distractors = _DISTRACTOR_POOLS[cfg]
+        print(f"loaded {cfg}: {len(ds)} rows")
+        for i, row in enumerate(ds):
+            rec = _transform_to_mcq(row, i, distractors, cfg)
+            if rec is not None:
+                records.append(rec)
+
+    # Cap at ~1000 to match plan
+    if len(records) > 1000:
+        random.Random(42).shuffle(records)
+        records = records[:1000]
 
     with jsonlines.open(out, "w") as w:
         for r in records:

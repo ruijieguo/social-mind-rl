@@ -1,8 +1,11 @@
 """Synthesize ToM MCQ questions via deepseek-v4-pro API.
 
-Generates ~1.5k records covering the 8 ToMBench task types.
+Generates training-grade ToM MCQ records covering the 9 ToMBench task types.
 Each call asks for a fresh question + 4 options + gold letter.
 Explicitly prohibits reproducing ToMBench questions.
+
+Writes streamingly to the output file (line-by-line) so a crash
+doesn't lose progress, and prints periodic progress to stderr.
 """
 from __future__ import annotations
 import argparse
@@ -10,14 +13,14 @@ import json
 import os
 import random
 import re
+import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional
 
-import jsonlines
 from openai import OpenAI
-from tqdm import tqdm
 
 from scripts.data.schema import TomRecord
 
@@ -50,11 +53,9 @@ def parse_synth_response(text: str) -> Optional[TomRecord]:
     """Parse model output JSON into TomRecord, returning None on any failure."""
     if not text:
         return None
-    # Strip markdown fences
     m = _FENCE.search(text)
     if m:
         text = m.group(1)
-    # Find outermost JSON object
     m = _OBJ.search(text)
     if not m:
         return None
@@ -84,30 +85,34 @@ def parse_synth_response(text: str) -> Optional[TomRecord]:
     )
 
 
-def call_deepseek_once(client: OpenAI, task: str) -> Optional[TomRecord]:
+def call_deepseek_once(client: OpenAI, task: str, model: str = "deepseek-v4-flash", max_retries: int = 3) -> Optional[TomRecord]:
     user = SYNTH_TASK_PROMPTS[task] + " Output the JSON object directly."
-    for attempt in range(3):
+    last_err = ""
+    for attempt in range(max_retries):
         try:
             resp = client.chat.completions.create(
-                model="deepseek-v4-pro",
+                model=model,
                 messages=[
                     {"role": "system", "content": SYNTH_SYSTEM},
                     {"role": "user", "content": user},
                 ],
                 temperature=0.9,
                 max_tokens=800,
-                timeout=60,
+                timeout=120,
             )
-            rec = parse_synth_response(resp.choices[0].message.content or "")
+            content = resp.choices[0].message.content or ""
+            rec = parse_synth_response(content)
             if rec is None:
+                last_err = f"parse failed; content[:100]={content[:100]!r}"
                 continue
             rec.task = task
             return rec
         except Exception as e:
-            if attempt < 2:
+            last_err = f"{type(e).__name__}: {e}"
+            if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)
                 continue
-            print(f"synth call failed: {e}")
+    print(f"[synth] task={task} failed after {max_retries} retries: {last_err}", file=sys.stderr, flush=True)
     return None
 
 
@@ -118,6 +123,9 @@ def main():
                    help="comma-separated subset of task types, or 'all'")
     p.add_argument("--concurrency", type=int, default=8)
     p.add_argument("--out", default="data/tom/raw/synth.jsonl")
+    p.add_argument("--max-retries", type=int, default=3)
+    p.add_argument("--model", default="deepseek-v4-flash",
+                   help="deepseek model id; flash is ~2x faster than pro for this task")
     args = p.parse_args()
 
     api_key = os.environ.get("DEEPSEEK_API_KEY")
@@ -140,19 +148,42 @@ def main():
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    records: list[TomRecord] = []
-    with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
-        futures = [ex.submit(call_deepseek_once, client, t) for t in plan]
-        for i, f in enumerate(tqdm(as_completed(futures), total=len(futures), desc="synth")):
-            rec = f.result()
-            if rec is not None:
-                rec.question_id = f"synth_{i}"
-                records.append(rec)
 
-    with jsonlines.open(out, "w") as w:
-        for r in records:
-            w.write(r.to_jsonl_dict())
-    print(f"wrote {len(records)} synthetic records to {out}")
+    print(
+        f"[synth] starting: n={args.n}, concurrency={args.concurrency}, tasks={len(tasks)}, planned={len(plan)}",
+        file=sys.stderr, flush=True,
+    )
+
+    write_lock = threading.Lock()
+    counter = {"ok": 0, "fail": 0}
+    started = time.time()
+
+    with out.open("w", encoding="utf-8") as fp, ThreadPoolExecutor(max_workers=args.concurrency) as ex:
+        futures = {ex.submit(call_deepseek_once, client, t, args.model, args.max_retries): t for t in plan}
+        total = len(futures)
+        for i, f in enumerate(as_completed(futures), 1):
+            rec = f.result()
+            with write_lock:
+                if rec is not None:
+                    rec.question_id = f"synth_{counter['ok']}"
+                    fp.write(json.dumps(rec.to_jsonl_dict(), ensure_ascii=False) + "\n")
+                    fp.flush()
+                    counter["ok"] += 1
+                else:
+                    counter["fail"] += 1
+                if i % 25 == 0 or i == total:
+                    elapsed = time.time() - started
+                    rate = i / elapsed if elapsed > 0 else 0
+                    print(
+                        f"[synth] {i}/{total} done | ok={counter['ok']} fail={counter['fail']} | "
+                        f"{rate:.1f} req/s | elapsed={elapsed:.0f}s",
+                        file=sys.stderr, flush=True,
+                    )
+
+    print(
+        f"[synth] FINAL: wrote {counter['ok']} synthetic records to {out} (failed: {counter['fail']})",
+        file=sys.stderr, flush=True,
+    )
 
 
 if __name__ == "__main__":

@@ -80,9 +80,8 @@ def build_minhash_index(corpus: Iterable[tuple[str, str]], threshold: float = 0.
 
 def _text_for_match(rec: dict) -> str:
     """Canonical text used for similarity: question + 4 options."""
-    return " ".join([
-        rec["question"], rec["opt_a"], rec["opt_b"], rec["opt_c"], rec["opt_d"],
-    ])
+    parts = [rec.get("question"), rec.get("opt_a"), rec.get("opt_b"), rec.get("opt_c"), rec.get("opt_d")]
+    return " ".join(str(p) for p in parts if p is not None)
 
 
 def _load_raw(path: Path) -> list[dict]:
