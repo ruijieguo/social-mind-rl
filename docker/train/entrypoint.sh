@@ -25,7 +25,19 @@ nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader
 echo "=========================================="
 
 # Verify data + models present
-test -f "/mnt/data/tom_train.jsonl" || { echo "ERROR: /mnt/data/tom_train.jsonl missing"; exit 1; }
+case "${STAGE}" in
+  stage1)
+    DATA_FILE="/mnt/data/tom_train_4k.jsonl"
+    ;;
+  stage2|stage3_l3)
+    DATA_FILE="/mnt/data/tom_train.jsonl"
+    ;;
+  *)
+    echo "ERROR: unknown STAGE=${STAGE}"
+    exit 1
+    ;;
+esac
+test -f "${DATA_FILE}" || { echo "ERROR: ${DATA_FILE} missing"; exit 1; }
 test -f "/mnt/data/tombench_eval_subset500.jsonl" || { echo "ERROR: subset500 missing"; exit 1; }
 
 # Install ROLL in editable mode (idempotent)

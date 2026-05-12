@@ -102,7 +102,7 @@ eval-final: ## Phase 6: evaluate trained model (3 protocols × ZH+EN)
 	docker compose -f docker/dev/docker-compose.yml run --rm dev \
 	  python scripts/eval/run_tombench.py \
 	    --backend openai \
-	    --base-url http://$(TRAIN_HOST):$(SERVE_PORT)/v1 \
+	    --base-url http://$(TRAIN_HOST_HOSTONLY):$(SERVE_PORT)/v1 \
 	    --model qwen3-8b-tom \
 	    --protocols direct,cot,del_tom \
 	    --output output/eval/final.json
