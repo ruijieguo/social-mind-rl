@@ -1,0 +1,26 @@
+# Stage-3 L3 fallback: same as stage-2 but with process-reward (R_struct + R_content).
+# REQUIRES: R_content reward model trained first (see docs/runbook.md L3 section).
+# Skeleton; activate only if Y'_direct < X − 0.02 after stage-2.
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+exp_name: "qwen3-8B-tombench-rlvr-stage3-l3"
+seed: 42
+logging_dir: ./output/logs
+output_dir: ./output
+
+checkpoint_config:
+  type: file_system
+  output_dir: /mnt/output/${exp_name}
+
+# Identical to stage-2 except:
+# 1. Reward worker is replaced with TomMcqL3RewardWorker (NOT YET IMPLEMENTED)
+# 2. Two extra workers: deepseek_judge (R_struct) and rm_content (R_content via Qwen3-4B+LoRA)
+#
+# Implementation: see scripts/deploy/build_l3_components.md (to be added when L3 is triggered).
+# For now this file is a stub so the Makefile target exists.
+
+# When activating, copy stage-2 config above and add the L3 reward stack here.
