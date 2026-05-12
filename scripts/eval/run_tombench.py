@@ -114,7 +114,7 @@ def evaluate_one(
             opt_c=record["opt_c"], opt_d=record["opt_d"],
             language=language,
         )
-        sample_params = dict(temperature=0.0, top_p=1.0, max_tokens=32)
+        sample_params = dict(temperature=0.0, top_p=1.0, max_tokens=2048)
         n_samples = 1
     elif protocol == "cot":
         messages = build_cot_messages(

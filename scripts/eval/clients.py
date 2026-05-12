@@ -86,20 +86,50 @@ class ChatClient:
             body.update(extra_body_override)
 
         last_err: Optional[Exception] = None
+        # DashScope requires stream=True when enable_thinking=True; auto-detect.
+        requires_stream = bool(body.get("enable_thinking"))
         for attempt in range(self.max_retries):
             try:
-                resp = self._client.chat.completions.create(
-                    model=self.spec.model,
-                    messages=messages,
-                    temperature=temperature,
-                    top_p=top_p,
-                    max_tokens=max_tokens,
-                    n=n,
-                    timeout=self.timeout,
-                    extra_body=body if body else None,
-                )
-                content = resp.choices[0].message.content or ""
-                usage = getattr(resp, "usage", None) or type("U", (), {})()
+                if requires_stream:
+                    stream = self._client.chat.completions.create(
+                        model=self.spec.model,
+                        messages=messages,
+                        temperature=temperature,
+                        top_p=top_p,
+                        max_tokens=max_tokens,
+                        n=n,
+                        timeout=self.timeout,
+                        extra_body=body if body else None,
+                        stream=True,
+                    )
+                    chunks: list[str] = []
+                    usage = None
+                    for event in stream:
+                        if not event.choices:
+                            usage = getattr(event, "usage", None) or usage
+                            continue
+                        delta = event.choices[0].delta
+                        # `content` is the visible answer; `reasoning_content` is hidden
+                        # thinking text. We concatenate only the visible answer here so
+                        # downstream extractors see the same field as non-thinking mode.
+                        piece = getattr(delta, "content", None) or ""
+                        if piece:
+                            chunks.append(piece)
+                        usage = getattr(event, "usage", None) or usage
+                    content = "".join(chunks)
+                else:
+                    resp = self._client.chat.completions.create(
+                        model=self.spec.model,
+                        messages=messages,
+                        temperature=temperature,
+                        top_p=top_p,
+                        max_tokens=max_tokens,
+                        n=n,
+                        timeout=self.timeout,
+                        extra_body=body if body else None,
+                    )
+                    content = resp.choices[0].message.content or ""
+                    usage = getattr(resp, "usage", None) or type("U", (), {})()
                 return ChatResult(
                     content=content,
                     total_tokens=getattr(usage, "total_tokens", 0) or 0,
@@ -109,7 +139,20 @@ class ChatClient:
             except Exception as e:
                 last_err = e
                 if attempt < self.max_retries - 1:
-                    time.sleep(self.backoff_base ** attempt)
+                    # Rate-limit errors need a much longer backoff than transient
+                    # network errors. DashScope returns HTTP 429 with code
+                    # "limit_requests" — wait ~30-60s before retry.
+                    msg = str(e).lower()
+                    is_rate_limited = (
+                        "rate limit" in msg
+                        or "429" in msg
+                        or "limit_requests" in msg
+                    )
+                    if is_rate_limited:
+                        sleep_s = 30.0 * (attempt + 1)
+                    else:
+                        sleep_s = self.backoff_base ** attempt
+                    time.sleep(sleep_s)
                     continue
         assert last_err is not None
         raise last_err

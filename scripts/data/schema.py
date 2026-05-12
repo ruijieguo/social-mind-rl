@@ -4,29 +4,30 @@ from dataclasses import dataclass, asdict
 from typing import Optional
 
 
-# ToMBench's 20 ability strings → 8 broad task categories
+# Map ToMBench's verbose ability strings into the 6 broad task categories used
+# by both the eval reports and the design spec. We match on prefix because the
+# ability strings have many fine-grained variants (e.g.
+# "Belief: Location false beliefs", "Belief: Sequence false beliefs", etc.).
+TASK_PREFIXES = [
+    ("Belief", "Belief"),
+    ("Desire", "Desire"),
+    ("Emotion", "Emotion"),
+    ("Intention", "Intention"),
+    ("Knowledge", "Knowledge"),
+    ("Non-Literal Communication", "Non-literal Comm"),
+    ("Non-literal communication", "Non-literal Comm"),
+    ("Non-literal Comm", "Non-literal Comm"),
+]
+
+# Special-case mapping for ability strings that should be put in a different
+# task than their literal prefix (e.g. Social-R1 reports false-belief explicitly).
 ABILITY_TO_TASK = {
     "Belief: Location false beliefs": "False Belief",
+    "Belief: Content false beliefs": "False Belief",
+    "Belief: Sequence false beliefs": "False Belief",
     "Belief: Identity false beliefs": "False Belief",
-    "Belief: Strange Story Task": "Strange Story",
-    "Belief: Ambiguous Story": "Strange Story",
-    "Belief: Unexpected Outcome": "Unexpected Outcome",
-    "Belief: Persuasion Story": "Persuasion Story",
-    "Belief: Knowledge-Attention Link": "Knowledge",
-    "Belief: Knowledge-Pretend Play Link": "Knowledge",
-    "Belief: Percepts-Knowledge Link": "Knowledge",
-    "Desire: Multiple Desires": "Desire",
-    "Desire: Discrepant Desires": "Desire",
-    "Emotion: Moral Emotions": "Emotion",
-    "Emotion: Discrepant Emotions": "Emotion",
-    "Emotion: Hidden Emotions": "Emotion",
-    "Emotion: Emotion Regulation": "Emotion",
-    "Intention: Prediction of Actions": "Intention",
-    "Intention: Discrepant Intentions": "Intention",
-    "Intention: Completion of Failed Actions": "Intention",
-    "Non-literal Comm: Hinting": "Non-literal Comm",
-    "Non-literal Comm: Faux-pas Recognition": "Non-literal Comm",
-    "Non-literal Comm: Scalar Implicature": "Non-literal Comm",
+    "Belief: Location false beliefs Belief: Second-order beliefs": "False Belief",
+    "Belief: Content false beliefs Belief: Second-order beliefs": "False Belief",
 }
 
 
@@ -36,7 +37,7 @@ class TomRecord:
     question_id: str
     source: str                 # tombench | hi_tom | exploretom | simpletom | socialiqa | synth
     language: str               # en | zh
-    task: str                   # one of the 8 ToMBench broad categories
+    task: str                   # one of the broad ToMBench categories
     story: str
     question: str
     opt_a: str
@@ -50,5 +51,18 @@ class TomRecord:
 
 
 def ability_to_task(ability: str) -> str:
-    """Map ToMBench 'ability' field to one of 8 broad tasks; default to 'Other'."""
-    return ABILITY_TO_TASK.get(ability.strip(), "Other")
+    """Map ToMBench 'ability' field to a broad task category.
+
+    Resolution order:
+    1. Exact match in ABILITY_TO_TASK (false-belief subtypes).
+    2. Prefix match in TASK_PREFIXES.
+    3. Default to "Other".
+    """
+    s = ability.strip()
+    if s in ABILITY_TO_TASK:
+        return ABILITY_TO_TASK[s]
+    for prefix, task in TASK_PREFIXES:
+        if s.startswith(prefix + ":") or s.startswith(prefix + " "):
+            return task
+    return "Other"
+
