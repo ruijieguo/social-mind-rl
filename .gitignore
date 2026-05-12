@@ -11,7 +11,7 @@ __pycache__/
 venv/
 
 # Runtime products (will be regenerated)
-data/
+/data/
 output/
 
 # Local deployment env
