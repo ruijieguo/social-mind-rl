@@ -24,3 +24,21 @@ configs/deploy.env
 
 # Framework submodules (managed separately)
 framework/ROLL/
+
+# Eval cache
+output/eval_cache/
+
+# TensorBoard
+output/tensorboard/
+
+# Checkpoints (synced from TRAIN)
+output/checkpoints/
+
+# API usage logs
+output/api_usage.jsonl
+
+# manifests (regenerated)
+output/manifests/
+
+# Local docker volumes
+docker_volumes/
