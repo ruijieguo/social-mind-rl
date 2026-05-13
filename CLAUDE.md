@@ -50,22 +50,28 @@ Top-level entry: `make help`.
 - Zero leakage against ToMBench (MinHash 4-gram Jaccard threshold 0.6, per
   `data/tom/dedup_report.json`).
 
-## Baseline: known good numbers (on 500-question subset)
+## Baseline: known good numbers
 
-| Model | direct (main) | cot |
-|---|---|---|
-| **deepseek-v4-pro** = **target X** | **0.7880** | 0.7140 |
-| **Qwen3-8B (non-thinking)** = **Y_base_nt (start)** | **0.6900** | 0.7640 |
-| Qwen3-8B (thinking) = Y_base_t | 0.6940 | 0.7540 |
+| Model | direct (main) | cot | n |
+|---|---|---|---|
+| **deepseek-v4-pro** = **target X** | **0.7880** | 0.7140 | 500 |
+| **Qwen3-8B (non-thinking)** = **Y_base_nt (start)** | **0.7009** | 0.7464 | 5718 / 3675 |
+| Qwen3-8B (thinking) = Y_base_t | 0.6940 | 0.7540 | 500 |
 
 Report: `output/eval/baseline_report.md`.
 - Approaches X: `Y'_direct ≥ 0.7680` (X − 0.02)
 - Surpasses X: `Y'_direct ≥ 0.7880`
+- Gap to close: **8.7pp** (0.7009 → 0.7880)
 
-Per-task gap analysis (`scripts/analysis/baseline_gap_analysis.py`): the
-highest-ROI training targets are False Belief (gap 20.8%, n=130) and
-Emotion (gap 19.8%, n=86). Knowledge has a 34% both-wrong rate so training
-upside is capped.
+Qwen3-8B-nt direct was evaluated on the full 5718-question set; other
+buckets are on the random 500-question subset (subset and full match
+within 1.1pp on the one bucket where we have both, so subset numbers
+are representative).
+
+Per-task qwen3-8b-nt direct weakness (training upside): Knowledge 0.48
+(both we and deepseek struggle, capped upside), Belief 0.67, False Belief
+0.73, Non-literal Comm 0.78. Per-task gap analysis
+(`scripts/analysis/baseline_gap_analysis.py`) ranks training targets.
 
 ## API gotchas (non-obvious)
 
