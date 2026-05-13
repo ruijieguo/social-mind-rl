@@ -7,13 +7,15 @@ export
 TRAIN_HOST_HOSTONLY = $(shell echo "$(TRAIN_HOST)" | sed 's/.*@//')
 
 .PHONY: help env-check build-data baseline sync-up sync-down \
-        train-stage1 train-stage2 train-stage3-l3 \
+        train-stage1 train-stage1-1x8 train-stage2 train-stage2-1x8 \
+        train-stage3-l3 \
         serve-launch serve-stop serve-url eval-final analyze \
         pipeline-stage1 pipeline-stage2 pipeline-l3 \
+        pipeline-stage1-1x8 pipeline-stage2-1x8 \
         test-reward test-eval test-data
 
 help:
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS=":.*?## "}; {printf "%-22s %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' Makefile | awk 'BEGIN {FS=":.*?## "}; {printf "%-22s %s\n", $$1, $$2}'
 
 # ============================================================
 # DEV local (macOS) targets
@@ -57,17 +59,29 @@ sync-down: ## rsync ckpt + logs ← TRAIN
 # TRAIN training (triggered from DEV via SSH)
 # ============================================================
 
-train-stage1: ## Phase 4: stage-1 RL training (4k × 200 steps) on TRAIN
+train-stage1: ## Phase 4: stage-1 RL training (4k × 200 steps, 2×8 H800) on TRAIN
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \
 	  --env-file configs/deploy.env \
-	  run --rm -e STAGE=stage1 train"
+	  run --rm -e STAGE=stage1_2x8 train"
 
-train-stage2: ## Phase 5: stage-2 RL training (8k × 500 steps) on TRAIN
+train-stage1-1x8: ## Phase 4 (1×8 H800 variant): stage-1 on a single 8-GPU node
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \
 	  --env-file configs/deploy.env \
-	  run --rm -e STAGE=stage2 train"
+	  run --rm -e STAGE=stage1_1x8 train"
+
+train-stage2: ## Phase 5: stage-2 RL training (8k × 500 steps, 2×8 H800) on TRAIN
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm -e STAGE=stage2_2x8 train"
+
+train-stage2-1x8: ## Phase 5 (1×8 H800 variant): stage-2 on a single 8-GPU node
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm -e STAGE=stage2_1x8 train"
 
 train-stage3-l3: ## Phase 9: L3 fallback (process-reward) on TRAIN
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
@@ -124,3 +138,7 @@ analyze: ## Generate training curves, eval diff, error audit
 pipeline-stage1: build-data baseline sync-up train-stage1 sync-down analyze
 pipeline-stage2: sync-up train-stage2 sync-down serve-launch eval-final analyze
 pipeline-l3:     sync-up train-stage3-l3 sync-down serve-launch eval-final analyze
+
+# Single-node 8-GPU variants (mirror the 2×8 default pipeline, just swap the train target).
+pipeline-stage1-1x8: build-data baseline sync-up train-stage1-1x8 sync-down analyze
+pipeline-stage2-1x8: sync-up train-stage2-1x8 sync-down serve-launch eval-final analyze

@@ -32,7 +32,7 @@ Top-level entry: `make help`.
 | `scripts/eval/` | OpenAI-compatible eval framework: clients, extractors, report, run_tombench, rebuild_baseline_report. Tests under `scripts/eval/tests/`. |
 | `scripts/analysis/` | Post-hoc analysis: training curves, eval diff, error audit, baseline gap analysis. |
 | `scripts/deploy/` | Bash/Python cross-machine orchestration: sync_to_train, train_monitor, best-ckpt tracker, converter. |
-| `configs/tombench-rlvr/` | ROLL hydra configs for stage1 (small-scale), stage2 (main), stage3-l3 (fallback skeleton). |
+| `configs/tombench-rlvr/` | ROLL hydra configs for stage1 (small-scale), stage2 (main), stage3-l3 (fallback skeleton). Each stage ships in two variants: `_2x8` (2 nodes × 8 H800, 16 GPUs total — default) and `_1x8` (single 8-H800 node). `make train-stage1` defaults to 2×8; use `make train-stage1-1x8` for single-node. |
 | `docker/{dev,train,serve}/` | Three docker images + compose files. Only `dev` is buildable on macOS. |
 | `data/tom/` (gitignored) | Training + eval JSONLs. `tom_train.jsonl` is the 5911-record merged set. |
 | `output/eval/` (gitignored except baseline_report.md) | Evaluation results. |

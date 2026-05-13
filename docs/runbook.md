@@ -69,7 +69,13 @@ make sync-up
 ```
 Then on TRAIN (via DEV):
 ```bash
+# Default: 2×8 H800 (16 GPUs across 2 nodes)
 make train-stage1
+
+# Single-node alternative: 1×8 H800 (8 GPUs on one node)
+# Halves rollout_batch_size (32 vs 64) and doubles gradient_accumulation_steps
+# (64 vs 32) so the effective batch is unchanged.
+make train-stage1-1x8
 ```
 This runs in foreground. To run detached:
 ```bash
@@ -105,9 +111,15 @@ make analyze
 ## Stage 5 — Stage-2 main training
 
 ```bash
+# Default: 2×8 H800
 make pipeline-stage2
+
+# Single-node alternative: 1×8 H800
+make pipeline-stage2-1x8
 ```
-Runs ~25 hours. Same monitoring as stage-1.
+Runs ~25 hours on 2×8 H800; expect roughly 2× wall-clock on 1×8 since the
+rollout pool is half the size and gradient_accumulation_steps is doubled.
+Same monitoring as stage-1.
 
 ## Stage 6 — Final evaluation
 
