@@ -191,8 +191,46 @@ def main():
             w.write(r)
     print(f"wrote {len(train_records)} train records to {out_full}")
 
+    # Step 5: Fold in pre-translated zh records (training-format already).
+    # These were produced by translate_to_zh.py and have already gone through
+    # the EN training pool, so leakage was indirectly controlled. Still
+    # re-check zh-vs-zh-eval similarity to be safe.
+    zh_path = raw_dir / "zh_translated.jsonl"
+    zh_kept = 0
+    zh_dropped = 0
+    if zh_path.exists():
+        print(f"merging zh translations from {zh_path} ...")
+        zh_records = _load_raw(zh_path)
+        # Index zh eval rows
+        zh_eval = [r for r in eval_records if r.get("language") == "zh"]
+        zh_eval_index = MinHashIndex(threshold=0.6)
+        for er in zh_eval:
+            zh_eval_index.add(er["question_id"], _text_for_match(er))
+
+        with jsonlines.open(out_full, "a") as w:
+            for zr in zh_records:
+                user_msg = next((m for m in zr.get("messages", []) if m["role"] == "user"), None)
+                zh_text = user_msg["content"] if user_msg else ""
+                cands = zh_eval_index.query(exclude_key="", text=zh_text)
+                max_j = 0.0
+                for c in cands:
+                    er = next(e for e in zh_eval if e["question_id"] == c)
+                    j = jaccard_4gram(zh_text, _text_for_match(er))
+                    if j > max_j:
+                        max_j = j
+                if max_j > 0.6:
+                    zh_dropped += 1
+                else:
+                    w.write(zr)
+                    zh_kept += 1
+        print(f"  zh: kept={zh_kept} dropped={zh_dropped}")
+
+    # Re-count after appending
+    all_after_zh = list(jsonlines.open(out_full))
+    print(f"final tom_train.jsonl size: {len(all_after_zh)} records")
+
     # Subset
-    subset = random.sample(train_records, k=min(4000, len(train_records)))
+    subset = random.sample(all_after_zh, k=min(4000, len(all_after_zh)))
     with jsonlines.open(out_4k, "w") as w:
         for r in subset:
             w.write(r)
