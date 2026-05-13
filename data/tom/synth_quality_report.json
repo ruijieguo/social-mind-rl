@@ -1,0 +1,88 @@
+{
+  "model": "deepseek-v4-flash",
+  "sample_size": 300,
+  "ok": 135,
+  "bad": 6,
+  "failed": 159,
+  "good_rate": 0.9574468085106383,
+  "bad_records": [
+    {
+      "question_id": "synth_1768_zh",
+      "source": "synth_zh",
+      "task": "Other",
+      "gold": "D",
+      "verdict": {
+        "is_tom": true,
+        "unique_gold": true,
+        "distractors_plausible": false,
+        "overall_good": false,
+        "reason": "The distractors are not plausible given the story explicitly states Liz is worried and avoids the cat."
+      }
+    },
+    {
+      "question_id": "synth_1483",
+      "source": "synth",
+      "task": "Unexpected Outcome",
+      "gold": "D",
+      "verdict": {
+        "is_tom": true,
+        "unique_gold": true,
+        "distractors_plausible": false,
+        "overall_good": false,
+        "reason": "Distractors are implausible; only D is correct."
+      }
+    },
+    {
+      "question_id": "synth_2126_zh",
+      "source": "synth_zh",
+      "task": "Other",
+      "gold": "D",
+      "verdict": {
+        "is_tom": true,
+        "unique_gold": true,
+        "distractors_plausible": false,
+        "overall_good": false,
+        "reason": "Only D is correct; other options are implausible distractions."
+      }
+    },
+    {
+      "question_id": "synth_2556_zh",
+      "source": "synth_zh",
+      "task": "Other",
+      "gold": "C",
+      "verdict": {
+        "is_tom": true,
+        "unique_gold": true,
+        "distractors_plausible": false,
+        "overall_good": false,
+        "reason": "Distractors are not all plausible: D is unrealistic, A is the actual outcome but not what Leo believes, B is too neutral. Only C fits his false belief about water."
+      }
+    },
+    {
+      "question_id": "synth_274_zh",
+      "source": "synth_zh",
+      "task": "Other",
+      "gold": "A",
+      "verdict": {
+        "is_tom": true,
+        "unique_gold": true,
+        "distractors_plausible": false,
+        "overall_good": false,
+        "reason": "Only A is directly implied; D is a plausible distractor but less reasonable given context"
+      }
+    },
+    {
+      "question_id": "synth_1831_zh",
+      "source": "synth_zh",
+      "task": "Other",
+      "gold": "B",
+      "verdict": {
+        "is_tom": true,
+        "unique_gold": true,
+        "distractors_plausible": false,
+        "overall_good": false,
+        "reason": "A is implausible as a normal expectation; C and D are weak distractors."
+      }
+    }
+  ]
+}
