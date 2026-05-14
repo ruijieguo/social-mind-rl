@@ -55,23 +55,45 @@ def download_all(out_dir: Path) -> list[Path]:
     return paths
 
 
+def _str_field(raw: dict, *keys: str) -> str:
+    """Get a field as str, coalescing missing/NaN/non-string values to ''.
+
+    ToMBench source data uses NaN (the float, not the JSON null) for absent
+    options on 3-option questions like Faux-pas Recognition Test. Plain
+    `raw.get(k) or ''` returns NaN because float('nan') is truthy.
+    """
+    for k in keys:
+        v = raw.get(k)
+        if v is None:
+            continue
+        if isinstance(v, float):
+            # NaN check via != self (only NaN is unequal to itself)
+            if v != v:
+                continue
+            return str(v)
+        s = str(v).strip()
+        if s and s.lower() != "nan":
+            return s
+    return ""
+
+
 def transform_one(raw: dict, idx_in_file: int, fname: str) -> list[TomRecord]:
     """One raw ToMBench entry → 2 records (en + zh)."""
     ability = raw.get("能力\nABILITY", "")
     task = ability_to_task(ability)
     qid_base = f"{fname.replace('.jsonl','').replace(' ', '_')}_{idx_in_file}"
-    gold = (raw.get("答案\nANSWER") or raw.get("ANSWER", "")).strip()
+    gold = _str_field(raw, "答案\nANSWER", "ANSWER")
     if gold not in {"A", "B", "C", "D"}:
         return []
 
     records = []
     # English
-    en_story = raw.get("STORY") or ""
-    en_q = raw.get("QUESTION") or ""
-    en_a = raw.get("OPTION-A") or ""
-    en_b = raw.get("OPTION-B") or ""
-    en_c = raw.get("OPTION-C") or ""
-    en_d = raw.get("OPTION-D") or ""
+    en_story = _str_field(raw, "STORY")
+    en_q = _str_field(raw, "QUESTION")
+    en_a = _str_field(raw, "OPTION-A")
+    en_b = _str_field(raw, "OPTION-B")
+    en_c = _str_field(raw, "OPTION-C")
+    en_d = _str_field(raw, "OPTION-D")
     if en_story and en_q and en_a:
         records.append(TomRecord(
             question_id=f"{qid_base}_en", source="tombench",
@@ -81,12 +103,12 @@ def transform_one(raw: dict, idx_in_file: int, fname: str) -> list[TomRecord]:
             gold=gold,
         ))
     # Chinese
-    zh_story = raw.get("故事") or ""
-    zh_q = raw.get("问题") or ""
-    zh_a = raw.get("选项A") or ""
-    zh_b = raw.get("选项B") or ""
-    zh_c = raw.get("选项C") or ""
-    zh_d = raw.get("选项D") or ""
+    zh_story = _str_field(raw, "故事")
+    zh_q = _str_field(raw, "问题")
+    zh_a = _str_field(raw, "选项A")
+    zh_b = _str_field(raw, "选项B")
+    zh_c = _str_field(raw, "选项C")
+    zh_d = _str_field(raw, "选项D")
     if zh_story and zh_q and zh_a:
         records.append(TomRecord(
             question_id=f"{qid_base}_zh", source="tombench",
