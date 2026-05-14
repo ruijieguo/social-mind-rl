@@ -132,17 +132,43 @@ def main():
             for idx, raw in enumerate(reader):
                 all_records.extend(transform_one(raw, idx, p.name))
 
+    # Lazy import to avoid circular dep with eval prompt builders.
+    from scripts.eval.run_tombench import (
+        SYSTEM_PROMPT_DIRECT,
+        build_user_prompt_en,
+        build_user_prompt_zh,
+    )
+
+    def _to_train_format(rec: TomRecord) -> dict:
+        """Add a ROLL-compatible messages field so the same eval JSONL can
+        feed both our scripts/eval/* runners (which read raw fields) AND
+        the ROLL validation pipeline (which needs `messages` + tokenizer
+        chat template). All raw fields are preserved alongside."""
+        builder = build_user_prompt_zh if rec.language == "zh" else build_user_prompt_en
+        user = builder(
+            story=rec.story, question=rec.question,
+            opt_a=rec.opt_a, opt_b=rec.opt_b, opt_c=rec.opt_c, opt_d=rec.opt_d,
+        )
+        d = rec.to_jsonl_dict()
+        d["messages"] = [
+            {"role": "system", "content": SYSTEM_PROMPT_DIRECT},
+            {"role": "user", "content": user},
+        ]
+        d["ground_truth"] = rec.gold
+        d["tag"] = "tom_mcq"
+        return d
+
     out_full.parent.mkdir(parents=True, exist_ok=True)
     with jsonlines.open(out_full, "w") as w:
         for r in all_records:
-            w.write(r.to_jsonl_dict())
+            w.write(_to_train_format(r))
     print(f"wrote {len(all_records)} records to {out_full}")
 
     random.seed(42)
     subset = random.sample(all_records, k=min(500, len(all_records)))
     with jsonlines.open(out_sub, "w") as w:
         for r in subset:
-            w.write(r.to_jsonl_dict())
+            w.write(_to_train_format(r))
     print(f"wrote {len(subset)} subset records to {out_sub}")
 
 
