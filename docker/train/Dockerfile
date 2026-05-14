@@ -15,11 +15,14 @@ WORKDIR /workspace
 
 # Install ROLL framework requirements.
 # requirements_torch280_vllm.txt references requirements_common.txt with `-r`,
-# so we need to COPY both files into the same directory and install from there
-# (not from /tmp/req.txt) so pip can resolve the relative reference.
-COPY framework/ROLL/requirements_common.txt /tmp/roll-reqs/requirements_common.txt
+# and requirements_common.txt has a local-path entry `./mcore_adapter` for
+# ROLL's bundled Megatron adapter package. We need to COPY all three pieces
+# into a working directory and run pip from there so both relative refs
+# resolve. The actual ROLL source tree is mounted at runtime via compose.
+COPY framework/ROLL/requirements_common.txt        /tmp/roll-reqs/requirements_common.txt
 COPY framework/ROLL/requirements_torch280_vllm.txt /tmp/roll-reqs/requirements_torch280_vllm.txt
-RUN pip install -r /tmp/roll-reqs/requirements_torch280_vllm.txt
+COPY framework/ROLL/mcore_adapter                  /tmp/roll-reqs/mcore_adapter
+RUN cd /tmp/roll-reqs && pip install -r requirements_torch280_vllm.txt
 
 # Install ROLL in editable mode (source is mounted at runtime)
 # We DON'T `pip install -e .` here because the source is mounted; instead
