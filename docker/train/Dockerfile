@@ -14,13 +14,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /workspace
 
 # Install ROLL framework requirements.
-# requirements_torch280_vllm.txt references requirements_common.txt with `-r`,
-# and requirements_common.txt has a local-path entry `./mcore_adapter` for
-# ROLL's bundled Megatron adapter package. We need to COPY all three pieces
-# into a working directory and run pip from there so both relative refs
-# resolve. The actual ROLL source tree is mounted at runtime via compose.
-COPY framework/ROLL/requirements_common.txt        /tmp/roll-reqs/requirements_common.txt
-COPY framework/ROLL/requirements_torch280_vllm.txt /tmp/roll-reqs/requirements_torch280_vllm.txt
+# requirements_torch280_vllm.txt chains via `-r` to requirements_common.txt,
+# which further chains to requirements_vision.txt and has a `./mcore_adapter`
+# local-path entry. Copy all the requirements files and the mcore_adapter
+# package into a working directory and pip-install from there so every
+# relative reference resolves. The runtime ROLL source still comes via
+# volume mount.
+RUN mkdir -p /tmp/roll-reqs
+COPY framework/ROLL/requirements_common.txt        /tmp/roll-reqs/
+COPY framework/ROLL/requirements_torch280_vllm.txt /tmp/roll-reqs/
+COPY framework/ROLL/requirements_vision.txt        /tmp/roll-reqs/
 COPY framework/ROLL/mcore_adapter                  /tmp/roll-reqs/mcore_adapter
 RUN cd /tmp/roll-reqs && pip install -r requirements_torch280_vllm.txt
 
