@@ -31,11 +31,22 @@ RUN pip uninstall -y torch torchvision torch-tensorrt \
     cugraph-dgl cugraph-pyg dask-cudf || true
 
 # Pin torch 2.6 + matching torchvision/audio (CUDA 12.4 wheels).
-# Bypass aliyun mirror for torch since cu124 wheels are only on download.pytorch.org.
-# Heavy retries because the wheels are 200+ MB and the network is sometimes flaky.
-RUN pip install --index-url https://download.pytorch.org/whl/cu124 \
-    --retries 10 --timeout 600 \
-    torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0
+# download.pytorch.org from CN is flaky (200+ MB wheel often disconnects
+# mid-stream), so prefetch via Aliyun's pytorch-wheels mirror with curl
+# --continue-at to support resumption, then pip install from the local files.
+RUN mkdir -p /tmp/torch-wheels && cd /tmp/torch-wheels && \
+    for f in \
+      torch-2.6.0+cu124-cp310-cp310-linux_x86_64.whl \
+      torchvision-0.21.0+cu124-cp310-cp310-linux_x86_64.whl \
+      torchaudio-2.6.0+cu124-cp310-cp310-linux_x86_64.whl ; do \
+        echo "downloading $f ..." && \
+        curl -fL --retry 20 --retry-delay 5 --retry-all-errors -C - \
+             -o "$f" "https://mirrors.aliyun.com/pytorch-wheels/cu124/$f" ; \
+    done && \
+    pip install ./torch-2.6.0+cu124-cp310-cp310-linux_x86_64.whl \
+                ./torchvision-0.21.0+cu124-cp310-cp310-linux_x86_64.whl \
+                ./torchaudio-2.6.0+cu124-cp310-cp310-linux_x86_64.whl && \
+    rm -rf /tmp/torch-wheels
 
 # Replace preinstalled opencv with headless build to avoid GL/X11 deps.
 RUN pip uninstall -y opencv opencv-python opencv-python-headless || true && \
