@@ -43,8 +43,12 @@ test -f "/mnt/data/tombench_eval_subset500.jsonl" || { echo "ERROR: subset500 mi
 # Install ROLL in editable mode (idempotent)
 pip install -e /workspace/framework/ROLL >/dev/null
 
-# Run training
+# Run training. Hydra's initialize() rejects absolute config paths; it expects
+# a path RELATIVE to the calling script's directory. start_rlvr_pipeline.py
+# lives at framework/ROLL/examples/, so we symlink our config dir into a
+# location reachable via a relative path and call hydra with that relative ref.
 cd /workspace/framework/ROLL
+ln -sfn /workspace/configs/tombench-rlvr examples/tombench_configs
 exec python examples/start_rlvr_pipeline.py \
-  --config_path "${CONFIG_DIR}" \
+  --config_path "tombench_configs" \
   --config_name "${CONFIG_NAME}"
