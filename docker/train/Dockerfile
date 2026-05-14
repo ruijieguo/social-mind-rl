@@ -54,23 +54,29 @@ RUN pip uninstall -y opencv opencv-python opencv-python-headless || true && \
     pip install opencv-python-headless==4.11.0.86
 
 # Core ML deps with versions matched to ROLL's validated combination.
-# transformer_engine builds from sdist and its setup.py imports torch, so
-# we must disable build isolation (otherwise pip builds in a fresh env
-# without our installed torch and fails with "This package needs Torch
-# to build"). Same applies to deepspeed.
+# - --no-build-isolation so TE/deepspeed setup.py sees the installed torch
+#   ("RuntimeError: This package needs Torch to build")
+# - --no-deps for transformer-engine because its [pytorch] extra pulls a
+#   fresh torch (latest = 2.12) and overwrites our pinned 2.6.0 build.
+#   We supply transformer_engine_torch + cu12 helper wheels manually.
 RUN pip install --no-build-isolation \
-      "numpy==1.26.4" "optree>=0.13.0" "spacy==3.7.5" "weasel==0.4.1" \
-      transformer-engine[pytorch]==2.2.0 \
+      "numpy==1.26.4" "optree>=0.13.0" "spacy==3.7.5" "weasel==0.4.1"
+RUN pip install --no-build-isolation --no-deps \
+      transformer-engine==2.2.0 \
+      transformer-engine-torch==2.2.0 \
+      transformer-engine-cu12==2.2.0
+RUN pip install --no-build-isolation \
       megatron-core==0.11.0 \
       deepspeed==0.16.4
 
-# Flash-attn comes from a prebuilt wheel matching torch 2.6 / cu12.
-# GitHub releases occasionally throttle, so prefetch with curl --retry first
-# to make the download more robust than pip's single-shot fetch.
-RUN curl -fL --retry 10 --retry-delay 5 \
+# Flash-attn from a prebuilt wheel for torch 2.6 / cu12. GitHub releases
+# are unreachable from CN datacenters without a proxy, so go through
+# gh-proxy.com. curl --continue-at resumes a partial download.
+RUN curl -fL --retry 20 --retry-delay 5 --retry-all-errors -C - \
+    --connect-timeout 30 --max-time 1800 \
     -o /tmp/flash_attn.whl \
-    https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.2.post1/flash_attn-2.7.2.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl && \
-    pip install /tmp/flash_attn.whl && \
+    "https://gh-proxy.com/https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.2.post1/flash_attn-2.7.2.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl" && \
+    pip install --no-deps /tmp/flash_attn.whl && \
     rm /tmp/flash_attn.whl
 
 # vLLM separately (it pins ray + many transitive deps).
