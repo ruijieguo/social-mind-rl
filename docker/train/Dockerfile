@@ -54,7 +54,11 @@ RUN pip uninstall -y opencv opencv-python opencv-python-headless || true && \
     pip install opencv-python-headless==4.11.0.86
 
 # Core ML deps with versions matched to ROLL's validated combination.
-RUN pip install \
+# transformer_engine builds from sdist and its setup.py imports torch, so
+# we must disable build isolation (otherwise pip builds in a fresh env
+# without our installed torch and fails with "This package needs Torch
+# to build"). Same applies to deepspeed.
+RUN pip install --no-build-isolation \
       "numpy==1.26.4" "optree>=0.13.0" "spacy==3.7.5" "weasel==0.4.1" \
       transformer-engine[pytorch]==2.2.0 \
       megatron-core==0.11.0 \
