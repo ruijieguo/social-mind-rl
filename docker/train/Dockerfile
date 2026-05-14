@@ -9,7 +9,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_ROOT_USER_ACTION=ignore \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10 \
+    PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ \
+    PIP_TRUSTED_HOST=mirrors.aliyun.com
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates rsync openssh-client \
@@ -27,8 +31,11 @@ RUN pip uninstall -y torch torchvision torch-tensorrt \
     cugraph-dgl cugraph-pyg dask-cudf || true
 
 # Pin torch 2.6 + matching torchvision/audio (CUDA 12.4 wheels).
-RUN pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
-      --index-url https://download.pytorch.org/whl/cu124
+# Bypass aliyun mirror for torch since cu124 wheels are only on download.pytorch.org.
+# Heavy retries because the wheels are 200+ MB and the network is sometimes flaky.
+RUN pip install --index-url https://download.pytorch.org/whl/cu124 \
+    --retries 10 --timeout 600 \
+    torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0
 
 # Replace preinstalled opencv with headless build to avoid GL/X11 deps.
 RUN pip uninstall -y opencv opencv-python opencv-python-headless || true && \
@@ -43,8 +50,13 @@ RUN pip install \
       deepspeed==0.16.4
 
 # Flash-attn comes from a prebuilt wheel matching torch 2.6 / cu12.
-RUN pip install \
-    https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.2.post1/flash_attn-2.7.2.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+# GitHub releases occasionally throttle, so prefetch with curl --retry first
+# to make the download more robust than pip's single-shot fetch.
+RUN curl -fL --retry 10 --retry-delay 5 \
+    -o /tmp/flash_attn.whl \
+    https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.2.post1/flash_attn-2.7.2.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl && \
+    pip install /tmp/flash_attn.whl && \
+    rm /tmp/flash_attn.whl
 
 # vLLM separately (it pins ray + many transitive deps).
 RUN pip install vllm==0.8.4
