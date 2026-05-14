@@ -35,6 +35,20 @@ RUN cd /tmp/roll-reqs && pip install -r requirements_torch280_vllm.txt
 # after the requirements install.
 RUN pip install --no-deps 'click==8.2.1'
 
+# The base image (nvcr.io/nvidia/pytorch:24.10-py3) ships with torch 2.5 and
+# a transformer_engine pre-built against that ABI. ROLL's requirements pull
+# torch 2.8.x, but the preinstalled transformer_engine .so still links the
+# old torch C++ symbols, causing:
+#   ImportError: /usr/local/lib/python3.10/dist-packages/transformer_engine/
+#   transformer_engine_torch.cpython-310-x86_64-linux-gnu.so: undefined
+#   symbol: _ZN3c104cuda9SetDeviceEa
+# Rebuild transformer_engine against the now-installed torch 2.8.
+# --no-build-isolation lets it find the installed torch; we pin to the same
+# major version (2.x) that ROLL/Megatron expects.
+RUN pip uninstall -y transformer-engine transformer_engine || true && \
+    pip install --no-build-isolation --no-cache-dir \
+      'transformer_engine[pytorch]==2.1.0'
+
 # Install ROLL in editable mode (source is mounted at runtime)
 # We DON'T `pip install -e .` here because the source is mounted; instead
 # we set PYTHONPATH at runtime via entrypoint.
