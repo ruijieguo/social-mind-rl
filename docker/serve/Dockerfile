@@ -15,8 +15,8 @@ WORKDIR /workspace
 # vLLM with OpenAI API server
 RUN pip install "vllm>=0.6.0"
 
-COPY docker/serve/entrypoint.sh /workspace/entrypoint.sh
-RUN chmod +x /workspace/entrypoint.sh
+COPY docker/serve/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 8000
-ENTRYPOINT ["/workspace/entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -38,7 +38,12 @@ ENV PYTHONPATH=/workspace:/workspace/framework/ROLL
 RUN python -c "import torch, vllm; print('torch', torch.__version__, 'vllm', vllm.__version__)" || \
     echo "vllm not yet importable; will resolve at runtime"
 
-COPY docker/train/entrypoint.sh /workspace/entrypoint.sh
-RUN chmod +x /workspace/entrypoint.sh
+# Install entrypoint to /usr/local/bin so the volume mount at /workspace
+# (which is the bind-mount of the host repo) doesn't shadow it. The host
+# repo has docker/train/entrypoint.sh, so we could also reference that
+# path at runtime, but a baked-in /usr/local/bin copy is more robust to
+# layout changes.
+COPY docker/train/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-ENTRYPOINT ["/workspace/entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
