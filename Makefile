@@ -63,31 +63,31 @@ train-stage1: ## Phase 4: stage-1 RL training (4k × 200 steps, 2×8 H800) on TR
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \
 	  --env-file configs/deploy.env \
-	  run --rm -e STAGE=stage1_2x8 train"
+	  run --rm --build -e STAGE=stage1_2x8 train"
 
 train-stage1-1x8: ## Phase 4 (1×8 H800 variant): stage-1 on a single 8-GPU node
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \
 	  --env-file configs/deploy.env \
-	  run --rm -e STAGE=stage1_1x8 train"
+	  run --rm --build -e STAGE=stage1_1x8 train"
 
 train-stage2: ## Phase 5: stage-2 RL training (8k × 500 steps, 2×8 H800) on TRAIN
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \
 	  --env-file configs/deploy.env \
-	  run --rm -e STAGE=stage2_2x8 train"
+	  run --rm --build -e STAGE=stage2_2x8 train"
 
 train-stage2-1x8: ## Phase 5 (1×8 H800 variant): stage-2 on a single 8-GPU node
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \
 	  --env-file configs/deploy.env \
-	  run --rm -e STAGE=stage2_1x8 train"
+	  run --rm --build -e STAGE=stage2_1x8 train"
 
 train-stage3-l3: ## Phase 9: L3 fallback (process-reward) on TRAIN
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \
 	  --env-file configs/deploy.env \
-	  run --rm -e STAGE=stage3_l3 train"
+	  run --rm --build -e STAGE=stage3_l3 train"
 
 # ============================================================
 # Serve trained model on TRAIN
