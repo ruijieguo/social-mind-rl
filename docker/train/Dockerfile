@@ -48,6 +48,21 @@ RUN mkdir -p /tmp/torch-wheels && cd /tmp/torch-wheels && \
                 ./torchaudio-2.6.0+cu124-cp310-cp310-linux_x86_64.whl && \
     rm -rf /tmp/torch-wheels
 
+# Pin file used by ALL subsequent `pip install` calls so transitive deps
+# (especially deepspeed / vllm / megatron) cannot upgrade torch. Without
+# this, pip's resolver picks torch 2.12+cu130 from the latest sdist and
+# completely undoes the cu124 install above.
+RUN echo "torch==2.6.0+cu124" >  /tmp/constraints.txt && \
+    echo "torchvision==0.21.0+cu124" >> /tmp/constraints.txt && \
+    echo "torchaudio==2.6.0+cu124" >> /tmp/constraints.txt && \
+    echo "transformer-engine==2.2.0" >> /tmp/constraints.txt && \
+    echo "transformer-engine-torch==2.2.0" >> /tmp/constraints.txt && \
+    echo "transformer-engine-cu12==2.2.0" >> /tmp/constraints.txt && \
+    echo "deepspeed==0.16.4" >> /tmp/constraints.txt && \
+    echo "vllm==0.8.4" >> /tmp/constraints.txt && \
+    echo "megatron-core==0.11.0" >> /tmp/constraints.txt
+ENV PIP_CONSTRAINT=/tmp/constraints.txt
+
 # Replace preinstalled opencv with headless build to avoid GL/X11 deps.
 RUN pip uninstall -y opencv opencv-python opencv-python-headless || true && \
     rm -rf /usr/local/lib/python3.10/dist-packages/cv2/ && \
@@ -55,17 +70,18 @@ RUN pip uninstall -y opencv opencv-python opencv-python-headless || true && \
 
 # Core ML deps with versions matched to ROLL's validated combination.
 # - --no-build-isolation so TE/deepspeed setup.py sees the installed torch
-#   ("RuntimeError: This package needs Torch to build")
-# - --no-deps for transformer-engine because its [pytorch] extra pulls a
-#   fresh torch (latest = 2.12) and overwrites our pinned 2.6.0 build.
-#   We supply transformer_engine_torch + cu12 helper wheels manually.
+# - --no-deps because pip's dep resolver keeps upgrading torch to the
+#   latest cu130 build (2.12.0) via transitive deps from deepspeed/TE.
+# Install the runtime deps these packages actually need ourselves first.
 RUN pip install --no-build-isolation \
-      "numpy==1.26.4" "optree>=0.13.0" "spacy==3.7.5" "weasel==0.4.1"
+      "numpy==1.26.4" "optree>=0.13.0" "spacy==3.7.5" "weasel==0.4.1" \
+      "psutil" "py-cpuinfo" "hjson" "ninja" "pydantic" \
+      "packaging" "pyyaml" "msgpack" "tqdm"
 RUN pip install --no-build-isolation --no-deps \
       transformer-engine==2.2.0 \
       transformer-engine-torch==2.2.0 \
       transformer-engine-cu12==2.2.0
-RUN pip install --no-build-isolation \
+RUN pip install --no-build-isolation --no-deps \
       megatron-core==0.11.0 \
       deepspeed==0.16.4
 
