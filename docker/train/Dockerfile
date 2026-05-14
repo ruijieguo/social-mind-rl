@@ -1,10 +1,14 @@
-# TRAIN image — runs on remote GPU server (16×H800)
-# Based on NVIDIA's PyTorch container which already has CUDA + PyTorch matched.
-FROM nvcr.io/nvidia/pytorch:24.10-py3
+# TRAIN image — runs on remote GPU server.
+# Mirrors ROLL's official framework/ROLL/docker/Dockerfile.torch260.vllm
+# install ordering (NVIDIA pytorch:24.05 base + explicit version pins),
+# because the requirements_*.txt files have unresolvable transitive conflicts
+# (vllm 0.8.4 vs ray[default] 2.48 on opentelemetry-sdk).
+FROM nvcr.io/nvidia/pytorch:24.05-py3
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
+    PIP_ROOT_USER_ACTION=ignore \
     DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,33 +17,60 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /workspace
 
-# Install ROLL framework requirements.
-# We use requirements_torch260_vllm.txt (NOT torch280) because torch 2.8 path
-# leaves transformer-engine unpinned and megatron-core's TE import path
-# `te.pytorch.Linear` breaks against newer/auto-resolved TE versions:
-#   AttributeError: module 'transformer_engine' has no attribute 'pytorch'
-# The 2.6 path pins transformer-engine[pytorch]==2.2.0 which megatron-core
-# 0.15-0.16 expects.
-#
-# The torch260_vllm chain references requirements_common.txt and
-# requirements_vision.txt with `-r`, and requirements_common.txt has a
-# `./mcore_adapter` local-path entry. Copy all the requirements files and
-# the mcore_adapter package into a working directory and pip-install from
-# there so every relative reference resolves. Runtime ROLL source comes
-# via volume mount.
-RUN mkdir -p /tmp/roll-reqs
-COPY framework/ROLL/requirements_common.txt        /tmp/roll-reqs/
-COPY framework/ROLL/requirements_torch260_vllm.txt /tmp/roll-reqs/
-COPY framework/ROLL/requirements_vision.txt        /tmp/roll-reqs/
-COPY framework/ROLL/mcore_adapter                  /tmp/roll-reqs/mcore_adapter
-RUN cd /tmp/roll-reqs && pip install --no-build-isolation -r requirements_torch260_vllm.txt
+RUN pip install --upgrade pip setuptools wheel
+
+# Remove preinstalled torch/TE/flash-attn so we can install matched versions
+# below. cudf/dask packages are removed because they pin numpy too tightly.
+RUN pip uninstall -y torch torchvision torch-tensorrt \
+    flash_attn transformer-engine \
+    cudf dask-cuda cugraph cugraph-service-server cuml raft-dask \
+    cugraph-dgl cugraph-pyg dask-cudf || true
+
+# Pin torch 2.6 + matching torchvision/audio (CUDA 12.4 wheels).
+RUN pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
+      --index-url https://download.pytorch.org/whl/cu124
+
+# Replace preinstalled opencv with headless build to avoid GL/X11 deps.
+RUN pip uninstall -y opencv opencv-python opencv-python-headless || true && \
+    rm -rf /usr/local/lib/python3.10/dist-packages/cv2/ && \
+    pip install opencv-python-headless==4.11.0.86
+
+# Core ML deps with versions matched to ROLL's validated combination.
+RUN pip install \
+      "numpy==1.26.4" "optree>=0.13.0" "spacy==3.7.5" "weasel==0.4.1" \
+      transformer-engine[pytorch]==2.2.0 \
+      megatron-core==0.11.0 \
+      deepspeed==0.16.4
+
+# Flash-attn comes from a prebuilt wheel matching torch 2.6 / cu12.
+RUN pip install \
+    https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.2.post1/flash_attn-2.7.2.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+
+# vLLM separately (it pins ray + many transitive deps).
+RUN pip install vllm==0.8.4
+
+# NVIDIA Apex for fused optimizers (Megatron prefers it).
+ARG APEX_URL=git+https://github.com/NVIDIA/apex.git@25.04
+RUN pip uninstall -y apex || true && \
+    MAX_JOBS=32 NINJA_FLAGS="-j32" NVCC_APPEND_FLAGS="--threads 32" \
+    pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
+      --config-settings "--build-option=--cpp_ext --cuda_ext --parallel 32" \
+      ${APEX_URL}
+
+# Now install the ROLL python-only deps from requirements_common.txt, which
+# pull in ray, dacite, hydra, datasets, etc. We skip the `./mcore_adapter`
+# editable entry to avoid bind-mount writes; instead we install mcore_adapter
+# explicitly below from a COPY'd snapshot.
+COPY framework/ROLL/requirements_common.txt /tmp/roll-reqs/requirements_common.txt
+COPY framework/ROLL/requirements_vision.txt /tmp/roll-reqs/requirements_vision.txt
+COPY framework/ROLL/mcore_adapter          /tmp/roll-reqs/mcore_adapter
+RUN sed -i '/^\.\/mcore_adapter$/d' /tmp/roll-reqs/requirements_common.txt && \
+    cd /tmp/roll-reqs && pip install -r requirements_common.txt
+RUN pip install /tmp/roll-reqs/mcore_adapter --no-deps
 
 # Pin click<8.3 because click 8.3.0 + Python 3.10 + ray triggers a deepcopy
-# ValueError on `ray start --head`:
-#   ValueError: <object object at 0x...> is not a valid Sentinel
-# (See https://discuss.ray.io/t/ray-start-head-failing-due-to-not-valid-sentinel/23121)
-# Some transitive dep of ROLL pulls in click 8.3, so we force a downgrade
-# after the requirements install.
+# ValueError on `ray start --head`. See:
+# https://discuss.ray.io/t/ray-start-head-failing-due-to-not-valid-sentinel/23121
 RUN pip install --no-deps 'click==8.2.1'
 
 # Install ROLL in editable mode (source is mounted at runtime)
