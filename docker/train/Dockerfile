@@ -70,14 +70,28 @@ RUN pip install --no-build-isolation \
       deepspeed==0.16.4
 
 # Flash-attn from a prebuilt wheel for torch 2.6 / cu12. GitHub releases
-# are unreachable from CN datacenters without a proxy, so go through
-# gh-proxy.com. curl --continue-at resumes a partial download.
-RUN curl -fL --retry 20 --retry-delay 5 --retry-all-errors -C - \
-    --connect-timeout 30 --max-time 1800 \
-    -o /tmp/flash_attn.whl \
-    "https://gh-proxy.com/https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.2.post1/flash_attn-2.7.2.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl" && \
-    pip install --no-deps /tmp/flash_attn.whl && \
-    rm /tmp/flash_attn.whl
+# are unreachable from CN datacenters without a proxy. Try multiple mirrors;
+# stop at first success.
+RUN set -e; \
+    F=flash_attn-2.7.2.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl; \
+    SRC=https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.2.post1/$F; \
+    MIRRORS="\
+        https://ghfast.top/$SRC \
+        https://mirror.ghproxy.com/$SRC \
+        https://gh-proxy.com/$SRC \
+        https://ghproxy.net/$SRC \
+        $SRC"; \
+    for url in $MIRRORS; do \
+      echo "trying $url ..."; \
+      if curl -fL --retry 5 --retry-delay 3 --retry-all-errors -C - \
+          --connect-timeout 15 --max-time 1800 \
+          -o /tmp/flash_attn.whl "$url"; then \
+        echo "downloaded via: $url"; break; \
+      fi; \
+      rm -f /tmp/flash_attn.whl; \
+    done; \
+    test -s /tmp/flash_attn.whl || { echo "ERROR: no flash-attn mirror reachable"; exit 1; }; \
+    pip install --no-deps /tmp/flash_attn.whl && rm /tmp/flash_attn.whl
 
 # vLLM separately (it pins ray + many transitive deps).
 RUN pip install vllm==0.8.4
