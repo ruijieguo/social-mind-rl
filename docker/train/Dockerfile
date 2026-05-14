@@ -27,6 +27,14 @@ COPY framework/ROLL/requirements_vision.txt        /tmp/roll-reqs/
 COPY framework/ROLL/mcore_adapter                  /tmp/roll-reqs/mcore_adapter
 RUN cd /tmp/roll-reqs && pip install -r requirements_torch280_vllm.txt
 
+# Pin click<8.3 because click 8.3.0 + Python 3.10 + ray triggers a deepcopy
+# ValueError on `ray start --head`:
+#   ValueError: <object object at 0x...> is not a valid Sentinel
+# (See https://discuss.ray.io/t/ray-start-head-failing-due-to-not-valid-sentinel/23121)
+# Some transitive dep of ROLL pulls in click 8.3, so we force a downgrade
+# after the requirements install.
+RUN pip install --no-deps 'click==8.2.1'
+
 # Install ROLL in editable mode (source is mounted at runtime)
 # We DON'T `pip install -e .` here because the source is mounted; instead
 # we set PYTHONPATH at runtime via entrypoint.
