@@ -14,18 +14,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /workspace
 
 # Install ROLL framework requirements.
-# requirements_torch280_vllm.txt chains via `-r` to requirements_common.txt,
-# which further chains to requirements_vision.txt and has a `./mcore_adapter`
-# local-path entry. Copy all the requirements files and the mcore_adapter
-# package into a working directory and pip-install from there so every
-# relative reference resolves. The runtime ROLL source still comes via
-# volume mount.
+# We use requirements_torch260_vllm.txt (NOT torch280) because torch 2.8 path
+# leaves transformer-engine unpinned and megatron-core's TE import path
+# `te.pytorch.Linear` breaks against newer/auto-resolved TE versions:
+#   AttributeError: module 'transformer_engine' has no attribute 'pytorch'
+# The 2.6 path pins transformer-engine[pytorch]==2.2.0 which megatron-core
+# 0.15-0.16 expects.
+#
+# The torch260_vllm chain references requirements_common.txt and
+# requirements_vision.txt with `-r`, and requirements_common.txt has a
+# `./mcore_adapter` local-path entry. Copy all the requirements files and
+# the mcore_adapter package into a working directory and pip-install from
+# there so every relative reference resolves. Runtime ROLL source comes
+# via volume mount.
 RUN mkdir -p /tmp/roll-reqs
 COPY framework/ROLL/requirements_common.txt        /tmp/roll-reqs/
-COPY framework/ROLL/requirements_torch280_vllm.txt /tmp/roll-reqs/
+COPY framework/ROLL/requirements_torch260_vllm.txt /tmp/roll-reqs/
 COPY framework/ROLL/requirements_vision.txt        /tmp/roll-reqs/
 COPY framework/ROLL/mcore_adapter                  /tmp/roll-reqs/mcore_adapter
-RUN cd /tmp/roll-reqs && pip install -r requirements_torch280_vllm.txt
+RUN cd /tmp/roll-reqs && pip install --no-build-isolation -r requirements_torch260_vllm.txt
 
 # Pin click<8.3 because click 8.3.0 + Python 3.10 + ray triggers a deepcopy
 # ValueError on `ray start --head`:
@@ -34,20 +41,6 @@ RUN cd /tmp/roll-reqs && pip install -r requirements_torch280_vllm.txt
 # Some transitive dep of ROLL pulls in click 8.3, so we force a downgrade
 # after the requirements install.
 RUN pip install --no-deps 'click==8.2.1'
-
-# The base image (nvcr.io/nvidia/pytorch:24.10-py3) ships with torch 2.5 and
-# a transformer_engine pre-built against that ABI. ROLL's requirements pull
-# torch 2.8.x, but the preinstalled transformer_engine .so still links the
-# old torch C++ symbols, causing:
-#   ImportError: /usr/local/lib/python3.10/dist-packages/transformer_engine/
-#   transformer_engine_torch.cpython-310-x86_64-linux-gnu.so: undefined
-#   symbol: _ZN3c104cuda9SetDeviceEa
-# Rebuild transformer_engine against the now-installed torch 2.8.
-# --no-build-isolation lets it find the installed torch; we pin to the same
-# major version (2.x) that ROLL/Megatron expects.
-RUN pip uninstall -y transformer-engine transformer_engine || true && \
-    pip install --no-build-isolation --no-cache-dir \
-      'transformer_engine[pytorch]==2.1.0'
 
 # Install ROLL in editable mode (source is mounted at runtime)
 # We DON'T `pip install -e .` here because the source is mounted; instead
