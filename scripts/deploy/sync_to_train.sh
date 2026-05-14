@@ -10,7 +10,11 @@ if [ ! -f configs/deploy.env ]; then
 fi
 source configs/deploy.env
 
-# 1. Code + configs (excludes output/data/.git/cache)
+# 1. Code + configs (excludes output/data/.git/cache + pip build artefacts).
+# pip install -e inside the train container writes *.egg-info/ as root, so
+# these can't be deleted/overwritten by rsync running as a non-root user on
+# the host. We exclude them entirely — they get regenerated at container
+# startup anyway.
 echo "[sync-up] syncing code → ${TRAIN_HOST}:${TRAIN_PATH}/"
 rsync -avz --delete \
   --exclude=output \
@@ -18,6 +22,8 @@ rsync -avz --delete \
   --exclude=.git \
   --exclude='**/__pycache__' \
   --exclude='*.pyc' \
+  --exclude='*.egg-info' \
+  --exclude='**/build/' \
   --exclude='**/.DS_Store' \
   --exclude='**/node_modules' \
   -e "ssh -i ${TRAIN_SSH_KEY}" \

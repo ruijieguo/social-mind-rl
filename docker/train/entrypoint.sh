@@ -40,8 +40,9 @@ esac
 test -f "${DATA_FILE}" || { echo "ERROR: ${DATA_FILE} missing"; exit 1; }
 test -f "/mnt/data/tombench_eval_subset500.jsonl" || { echo "ERROR: subset500 missing"; exit 1; }
 
-# Install ROLL in editable mode (idempotent)
-pip install -e /workspace/framework/ROLL >/dev/null
+# ROLL is importable via PYTHONPATH (set in compose); skip `pip install -e`
+# to avoid writing root-owned roll.egg-info/ into the bind-mounted host repo,
+# which then breaks future rsync sync-up runs.
 
 # Run training. Hydra's initialize() rejects absolute config paths; it expects
 # a path RELATIVE to the calling script's directory. start_rlvr_pipeline.py
