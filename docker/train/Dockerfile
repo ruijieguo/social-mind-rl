@@ -87,16 +87,19 @@ RUN pip install --no-build-isolation --no-deps \
       megatron-core==0.16.0 \
       deepspeed==0.16.4
 
-# Flash-attn 2.7.x. Prebuilt wheels live only on GitHub Releases, which is
-# unreachable from CN datacenters; every mirror we tried (ghproxy, ghfast,
-# gh-proxy.com, ghproxy.net) failed. Fall back to building from sdist
-# (PyPI sdist is on Aliyun's mirror) — this compiles for ~30-60 minutes
-# but reliably finishes. MAX_JOBS=4 keeps each nvcc invocation to ~16 GB
-# resident set; previously 16 deadlocked at [12/22] with no error
-# (likely silent oom-killer of an nvcc child).
-RUN MAX_JOBS=4 NVCC_THREADS=1 \
-    pip install --no-build-isolation --no-cache-dir --verbose \
-      flash-attn==2.7.2.post1
+# Flash-attn 2.7.x — DISABLED. Building from sdist consistently deadlocks
+# at file [12/22] of the 85-file CUDA compile (no error, no progress, no
+# nvcc subprocess). Both MAX_JOBS=16 and MAX_JOBS=4 deadlock identically.
+# Prebuilt wheels live only on GitHub Releases which is unreachable from
+# this CN datacenter; every proxy mirror returns reset-by-peer.
+#
+# vLLM 0.8.4 bundles its own flash-attention kernels (vllm-flash-attn),
+# so the pip flash-attn package is not strictly required for inference.
+# ROLL falls back to torch SDPA for paths that cannot use flash-attn.
+# We accept the modest perf hit to unblock the pipeline.
+# RUN MAX_JOBS=4 NVCC_THREADS=1 \
+#     pip install --no-build-isolation --no-cache-dir --verbose \
+#       flash-attn==2.7.2.post1
 
 # vLLM separately (it pins ray + many transitive deps).
 RUN pip install vllm==0.8.4
