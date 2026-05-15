@@ -90,9 +90,11 @@ RUN pip install --no-build-isolation --no-deps \
 # Flash-attn 2.7.x. Prebuilt wheels live only on GitHub Releases, which is
 # unreachable from CN datacenters; every mirror we tried (ghproxy, ghfast,
 # gh-proxy.com, ghproxy.net) failed. Fall back to building from sdist
-# (PyPI sdist is on Aliyun's mirror) — this compiles for ~40-60 minutes
-# but reliably finishes. MAX_JOBS caps parallelism to avoid OOM.
-RUN MAX_JOBS=16 NVCC_THREADS=2 \
+# (PyPI sdist is on Aliyun's mirror) — this compiles for ~30-60 minutes
+# but reliably finishes. MAX_JOBS=4 keeps each nvcc invocation to ~16 GB
+# resident set; previously 16 deadlocked at [12/22] with no error
+# (likely silent oom-killer of an nvcc child).
+RUN MAX_JOBS=4 NVCC_THREADS=1 \
     pip install --no-build-isolation --no-cache-dir --verbose \
       flash-attn==2.7.2.post1
 
