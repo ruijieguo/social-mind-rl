@@ -111,6 +111,10 @@ actor_train:
       pipeline_model_parallel_size: 1
       expert_model_parallel_size: 1
       use_distributed_optimizer: true
+      # Mem-efficient save: gather optimizer state via Gloo+CPU on DP rank 0
+      # instead of NCCL+CUDA all_gather. Avoids per-rank ~3.81 GiB GPU buffer
+      # that OOMs in colocated train+infer deployments.
+      distrib_optim_fully_reshardable_mem_efficient: true
       recompute_granularity: full
   device_mapping: list(range(0,16))
   infer_batch_size: 4
