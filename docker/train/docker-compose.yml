@@ -16,6 +16,10 @@ services:
       PYTHONPATH: /workspace:/workspace/framework/ROLL
       HF_HOME: /mnt/models/.cache/huggingface
       MODELSCOPE_CACHE: /mnt/models/.cache/modelscope
+      # Reduce memory fragmentation so colocated train/infer/reference + save
+      # can coexist on 80 GB H800. Without this, save_checkpoint OOMs at ~75
+      # GiB allocated while needing another 4 GiB for optimizer reshard.
+      PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
     deploy:
       resources:
         reservations:
