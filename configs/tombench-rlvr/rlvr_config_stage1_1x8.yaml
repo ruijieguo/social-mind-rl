@@ -19,9 +19,8 @@ checkpoint_config:
   type: file_system
   output_dir: /mnt/output/${exp_name}
 
-track_with: tensorboard
-tracker_kwargs:
-  log_dir: /mnt/output/tensorboard/${exp_name}
+track_with: ~
+tracker_kwargs: {}
 
 num_gpus_per_node: 8
 
