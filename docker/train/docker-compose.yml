@@ -24,6 +24,12 @@ services:
               count: all
               capabilities: [gpu]
     ipc: host
+    # CUDA IPC across processes uses pidfd_getfd, which needs SYS_PTRACE.
+    # Without it ROLL's model weight sync from train→infer workers fails:
+    #   RuntimeError: pidfd_getfd: Operation not permitted
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
     ulimits:
       memlock: -1
       stack: 67108864
