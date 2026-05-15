@@ -12,6 +12,7 @@ services:
       - ../../configs:/workspace/configs
       - ../../framework:/workspace/framework
       - ../../docs:/workspace/docs
+      - ../../logs:/workspace/logs
     environment:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}

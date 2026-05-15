@@ -57,3 +57,4 @@ output/manifests/
 
 # Local docker volumes
 docker_volumes/
+.claude/

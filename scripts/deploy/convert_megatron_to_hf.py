@@ -24,14 +24,14 @@ def main():
     dst.mkdir(parents=True, exist_ok=True)
 
     # Use ROLL's mcore_adapter conversion script
-    converter = Path("framework/ROLL/mcore_adapter/scripts/convert_to_hf.py")
+    converter = Path("framework/ROLL/mcore_adapter/tools/convert.py")
     if converter.exists():
         print(f"[convert] using {converter}")
         subprocess.run([
             "python", str(converter),
-            "--load", str(src),
-            "--save", str(dst),
-            "--base-model", args.base_model,
+            "--checkpoint_path", str(src),
+            "--output_path", str(dst),
+            "--bf16",
         ], check=True)
     else:
         # Fallback: if final ckpt is already HF (some ROLL strategies), just copy
