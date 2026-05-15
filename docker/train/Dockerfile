@@ -99,13 +99,18 @@ RUN MAX_JOBS=16 NVCC_THREADS=2 \
 # vLLM separately (it pins ray + many transitive deps).
 RUN pip install vllm==0.8.4
 
-# NVIDIA Apex for fused optimizers (Megatron prefers it).
-ARG APEX_URL=git+https://github.com/NVIDIA/apex.git@25.04
-RUN pip uninstall -y apex || true && \
-    MAX_JOBS=32 NINJA_FLAGS="-j32" NVCC_APPEND_FLAGS="--threads 32" \
-    pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
-      --config-settings "--build-option=--cpp_ext --cuda_ext --parallel 32" \
-      ${APEX_URL}
+# NVIDIA Apex (fused optimizers) — disabled because git clone of apex
+# submodules (cudnn-frontend, cutlass) is unreliable from this network
+# ("RPC failed; curl 56 GnuTLS recv error" / "early EOF"). Megatron-core
+# falls back to non-fused optimizers automatically when apex is absent;
+# the perf hit on a single 8-GPU node is small relative to the install
+# friction. Re-enable once a closer mirror is identified.
+# ARG APEX_URL=git+https://github.com/NVIDIA/apex.git@25.04
+# RUN pip uninstall -y apex || true && \
+#     MAX_JOBS=32 NINJA_FLAGS="-j32" NVCC_APPEND_FLAGS="--threads 32" \
+#     pip install -v --disable-pip-version-check --no-cache-dir --no-build-isolation \
+#       --config-settings "--build-option=--cpp_ext --cuda_ext --parallel 32" \
+#       ${APEX_URL}
 
 # Now install the ROLL python-only deps from requirements_common.txt, which
 # pull in ray, dacite, hydra, datasets, etc. We skip the `./mcore_adapter`
