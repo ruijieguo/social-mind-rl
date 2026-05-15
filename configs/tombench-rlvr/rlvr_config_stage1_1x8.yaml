@@ -97,8 +97,10 @@ actor_train:
     weight_decay: 0
     per_device_train_batch_size: 1
     # Doubled from 32 → 64 to keep effective batch at 8×64=512 sequences
-    # (matches 16×32=512 of the 2×8 config).
-    gradient_accumulation_steps: 64
+    # rollout_batch_size=32 + grad_accum=32 → mini_batch divides cleanly
+    # (effective batch 32×8 group = 256 seqs; vs 512 of 2×8 we accept the
+    # half-batch since 1×8 has half the rollout pool anyway).
+    gradient_accumulation_steps: 32
     warmup_steps: 20
     num_train_epochs: 50
   data_args:
