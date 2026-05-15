@@ -20,6 +20,8 @@ rsync -avz --delete \
   --exclude=output \
   --exclude=data \
   --exclude=.git \
+  --exclude='.cache' \
+  --exclude='**/.cache' \
   --exclude='**/__pycache__' \
   --exclude='*.pyc' \
   --exclude='*.egg-info' \
