@@ -60,7 +60,7 @@ RUN echo "torch==2.6.0+cu124" >  /tmp/constraints.txt && \
     echo "transformer-engine-cu12==2.2.0" >> /tmp/constraints.txt && \
     echo "deepspeed==0.16.4" >> /tmp/constraints.txt && \
     echo "vllm==0.8.4" >> /tmp/constraints.txt && \
-    echo "megatron-core==0.11.0" >> /tmp/constraints.txt && \
+    echo "megatron-core==0.16.0" >> /tmp/constraints.txt && \
     echo "transformers<5.0" >> /tmp/constraints.txt && \
     echo "transformers>=4.51,<4.55" >> /tmp/constraints.txt
 ENV PIP_CONSTRAINT=/tmp/constraints.txt
@@ -84,7 +84,7 @@ RUN pip install --no-build-isolation --no-deps \
       transformer-engine-torch==2.2.0 \
       transformer-engine-cu12==2.2.0
 RUN pip install --no-build-isolation --no-deps \
-      megatron-core==0.11.0 \
+      megatron-core==0.16.0 \
       deepspeed==0.16.4
 
 # Flash-attn 2.7.x. Prebuilt wheels live only on GitHub Releases, which is
