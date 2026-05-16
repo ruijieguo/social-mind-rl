@@ -83,6 +83,18 @@ train-stage2-1x8: ## Phase 5 (1×8 H800 variant): stage-2 on a single 8-GPU node
 	  --env-file configs/deploy.env \
 	  run --rm --build -e STAGE=stage2_1x8 train"
 
+train-stage3-1x8: ## Phase 6 (1×8 H800): bad-case-informed iteration (300 steps + KL + longer response)
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=stage3_1x8 train"
+
+train-stage4-1x8: ## Phase 7 (1×8 H800): stage-3 + Phase-1 synthetic data
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=stage4_1x8 train"
+
 train-stage3-l3: ## Phase 9: L3 fallback (process-reward) on TRAIN
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \

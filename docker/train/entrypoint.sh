@@ -29,7 +29,13 @@ case "${STAGE}" in
   stage1|stage1_1x8|stage1_2x8)
     DATA_FILE="/mnt/data/tom_train_4k.jsonl"
     ;;
-  stage2|stage2_1x8|stage2_2x8|stage3_l3)
+  stage2|stage2_1x8|stage2_2x8|stage3_1x8|stage3_l3)
+    DATA_FILE="/mnt/data/tom_train.jsonl"
+    ;;
+  stage4|stage4_1x8)
+    # Stage 4 uses tom_train.jsonl which now includes phase-1 synthesized
+    # data merged in (faux-pas + scalar implicature + hinting + 2nd-order belief).
+    # See docs/badcase_analysis.md.
     DATA_FILE="/mnt/data/tom_train.jsonl"
     ;;
   *)
