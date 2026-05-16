@@ -2,7 +2,7 @@
 
 > 训练: 2026-05-15 12:17 → 15:51 (UTC); 共 200 步, 4k 样本子集
 > Eval: 2026-05-16 00:25 (full ToMBench 5718) + subset500 (3 protocols)
-> Checkpoint: `/data/grj-projects/tom-output/qwen3-8B-tombench-rlvr-stage1-1x8/20260515-121728/checkpoint-199`
+> Checkpoint: `/data_nvme/grj-projects/tom-output/qwen3-8B-tombench-rlvr-stage1-1x8/20260515-121728/checkpoint-199`
 
 ## 1. Headline 结果
 
@@ -77,7 +77,7 @@
 
 ## 5. 部署
 
-- **HF 模型路径** (host): `/data/grj-projects/tom-output/qwen3-8B-tom-hf/` (16 GB, 4-shard safetensors)
+- **HF 模型路径** (host): `/data_nvme/grj-projects/tom-output/qwen3-8B-tom-hf/` (16 GB, 4-shard safetensors)
 - **vLLM serve**: `qwen3-tom-serve-direct` 容器 (复用 train image，避免重新 build serve image), GPU 0, port 8000
 - **OpenAI-compatible 端点**: `http://172.16.120.181:8000/v1`, model id `qwen3-8b-tom`
 - **冷启动**: ~2 分钟 (load + torch.compile)

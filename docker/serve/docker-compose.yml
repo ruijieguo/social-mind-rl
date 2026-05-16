@@ -6,7 +6,7 @@ services:
     image: qwen3-tom-serve:latest
     working_dir: /workspace
     volumes:
-      - ${TRAIN_OUTPUT_DIR:-/data/cpfs_0/tom-output}:/mnt/output
+      - ${TRAIN_OUTPUT_DIR:-/data_nvme/grj-projects/tom-output}:/mnt/output
     environment:
       MODEL_PATH: /mnt/output/final_model
       SERVE_PORT: ${SERVE_PORT:-8000}

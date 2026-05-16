@@ -20,18 +20,22 @@ checkpoint_config:
   type: file_system
   output_dir: /mnt/output/${exp_name}
 
-track_with: tensorboard
-tracker_kwargs:
-  log_dir: /mnt/output/tensorboard/${exp_name}
+track_with: stdout
+tracker_kwargs: {}
 
 num_gpus_per_node: 8
 
 max_steps: 500
-save_steps: 100
+# Each ckpt = 112 GB (model 16G + optimizer 92G + tokenizer/rng 4G).
+# Train server has ~113 GB free after stage1; saving every 100 steps would
+# overflow at step 200. Save only at the final step (max_steps - 1 = 499).
+save_steps: 500
 logging_steps: 1
 eval_steps: 50
 resume_from_checkpoint: false
 
+# Same as stage1_1x8: rollout_batch_size 32, grad_accum 32 (must divide cleanly,
+# 32 % 32 = 0). Effective batch 32 prompts x 8 group samples = 256 sequences.
 rollout_batch_size: 32
 prompt_length: 2048
 response_length: 256
@@ -96,7 +100,7 @@ actor_train:
     learning_rate: 1.0e-6
     weight_decay: 0
     per_device_train_batch_size: 1
-    gradient_accumulation_steps: 64
+    gradient_accumulation_steps: 32
     warmup_steps: 20
     num_train_epochs: 50
   data_args:
@@ -140,7 +144,7 @@ actor_infer:
   strategy_args:
     strategy_name: vllm
     strategy_config:
-      gpu_memory_utilization: 0.8
+      gpu_memory_utilization: 0.6
       block_size: 16
       max_model_len: 4096
   device_mapping: list(range(0,8))

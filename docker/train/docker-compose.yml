@@ -7,9 +7,9 @@ services:
     working_dir: /workspace
     volumes:
       - ../..:/workspace
-      - ${TRAIN_DATA_DIR:-/data/cpfs_0/tom-data}:/mnt/data
-      - ${TRAIN_MODELS_DIR:-/data/cpfs_0/models}:/mnt/models
-      - ${TRAIN_OUTPUT_DIR:-/data/cpfs_0/tom-output}:/mnt/output
+      - ${TRAIN_DATA_DIR:-/data_nvme/grj-projects/tom-data}:/mnt/data
+      - ${TRAIN_MODELS_DIR:-/data_nvme/grj-projects/models}:/mnt/models
+      - ${TRAIN_OUTPUT_DIR:-/data_nvme/grj-projects/tom-output}:/mnt/output
     environment:
       STAGE: ${STAGE:-stage1}
       USE_MODELSCOPE: '1'
