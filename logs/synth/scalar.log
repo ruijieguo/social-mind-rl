@@ -1,0 +1,16 @@
+ Container synth_scalar Creating 
+ Container synth_scalar Created 
+[synth_phase1] category=scalar | n=400 | concurrency=4
+[synth_phase1] plan: 400 calls, balanced over languages x gold letters ('A', 'B', 'C', 'D')
+[synth_phase1] scalar/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/en/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/zh/gold=D failed after 3: parse failed; content[:100]=''
+[scalar] 25/400 | ok=22 fail=3 deepseek_used_wrong_gold=14 | 0.0 req/s | hist={'A': 6, 'B': 4, 'C': 5, 'D': 7} | elapsed=1167s
+[synth_phase1] scalar/en/gold=D failed after 3: parse failed; content[:100]='{\n  "story": "At a publishing house, editor Marcus tells intern Tariq over email: \\"We received 50 m'
+[synth_phase1] scalar/en/gold=B failed after 3: parse failed; content[:100]=''
+[scalar] 50/400 | ok=45 fail=5 deepseek_used_wrong_gold=28 | 0.0 req/s | hist={'A': 13, 'B': 6, 'C': 11, 'D': 15} | elapsed=2225s
+[synth_phase1] scalar/en/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/en/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/en/gold=C failed after 3: parse failed; content[:100]=''
+

@@ -1,0 +1,75 @@
+ Container synth_hinting Creating 
+ Container synth_hinting Created 
+[synth_phase1] category=hinting | n=300 | concurrency=8
+[synth_phase1] plan: 296 calls, balanced over languages x gold letters ('A', 'B', 'C', 'D')
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[hinting] 25/296 | ok=24 fail=1 deepseek_used_wrong_gold=20 | 0.6 req/s | hist={'A': 6, 'B': 7, 'C': 6, 'D': 5} | elapsed=45s
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]='{\n  "story": "电影节首映礼后台，顾岚对着镜子摆弄项链，凌瑶提着化妆箱走近'
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[hinting] 50/296 | ok=46 fail=4 deepseek_used_wrong_gold=35 | 0.5 req/s | hist={'A': 12, 'B': 12, 'C': 10, 'D': 12} | elapsed=106s
+[synth_phase1] hinting/en/gold=B failed after 3: parse failed; content[:100]='{\n  "story": "At a startup investor pitch event, Ostap has just presented his company\'s financial fo'
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]='{\n  "story": "公司年会的茶歇时间，凌瑶望着远处的点心台，对身边的苏婉说：“今天这年会办得真热闹，就是点心摆得太偏了，走过去要绕好大一圈。”",\n  "question": "当凌瑶说这句'
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[hinting] 75/296 | ok=66 fail=9 deepseek_used_wrong_gold=49 | 0.5 req/s | hist={'A': 18, 'B': 16, 'C': 17, 'D': 15} | elapsed=152s
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[hinting] 100/296 | ok=86 fail=14 deepseek_used_wrong_gold=67 | 0.5 req/s | hist={'A': 21, 'B': 22, 'C': 21, 'D': 22} | elapsed=209s
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=A failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]='{\n  "story": "民宿主题派对上，夏知秋拿着空杯子在客厅里站了一会儿，走到凌瑶身边说：“这派对真热闹，可惜我的杯子空了。”凌瑶正忙着与别人交谈，没有立刻回应。",\n  "question":'
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[hinting] 125/296 | ok=106 fail=19 deepseek_used_wrong_gold=81 | 0.5 req/s | hist={'A': 29, 'B': 28, 'C': 23, 'D': 26} | elapsed=263s
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[hinting] 150/296 | ok=128 fail=22 deepseek_used_wrong_gold=94 | 0.5 req/s | hist={'A': 33, 'B': 34, 'C': 28, 'D': 33} | elapsed=326s
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]='{\n  "story": "夏知秋在摄影工作室的分享会上，看着自己刚拍的照片，对旁边的覃乐说：“我试了好几种后期预设，但就是调不出那种复古柔和的色调。”",\n  "question": "当他说这句话'
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]='{\n  "story": "在学校家长开放日，陆远和辛桐并排坐在'
+[synth_phase1] hinting/zh/gold=A failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[hinting] 175/296 | ok=149 fail=26 deepseek_used_wrong_gold=109 | 0.5 req/s | hist={'A': 39, 'B': 37, 'C': 36, 'D': 37} | elapsed=387s
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]='{\n  "story": "贺青和穆寒是城市图书馆的志愿者。一天下午，贺青正在整理新到的书籍，穆寒走过来。贺青抬头说：“穆寒，这些书的编号顺序好像有点问题，我这会儿有点眼花。”",\n  "questi'
+[hinting] 200/296 | ok=169 fail=31 deepseek_used_wrong_gold=124 | 0.5 req/s | hist={'A': 46, 'B': 42, 'C': 42, 'D': 39} | elapsed=431s
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]='{\n  "story": "首映礼后台，凌瑶擦着汗对夏知秋说：“这后台的空调真是一点用都没有，我嗓子都冒烟了。”",\n  "question": "当凌瑶说这句话时，她真正想说的是什么？",\n  "o'
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=A failed after 3: parse failed; content[:100]=''
+[hinting] 225/296 | ok=188 fail=37 deepseek_used_wrong_gold=136 | 0.5 req/s | hist={'A': 55, 'B': 44, 'C': 43, 'D': 46} | elapsed=495s
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/en/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/en/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[hinting] 250/296 | ok=205 fail=45 deepseek_used_wrong_gold=149 | 0.5 req/s | hist={'A': 57, 'B': 45, 'C': 48, 'D': 55} | elapsed=553s
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=A failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=C failed after 3: parse failed; content[:100]='{\n  "story": "在园艺爱好者茶会上，祁睿看到'
+[hinting] 275/296 | ok=226 fail=49 deepseek_used_wrong_gold=164 | 0.5 req/s | hist={'A': 67, 'B': 49, 'C': 50, 'D': 60} | elapsed=601s
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/en/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] hinting/zh/gold=D failed after 3: parse failed; content[:100]=''
+[hinting] 296/296 | ok=243 fail=53 deepseek_used_wrong_gold=175 | 0.5 req/s | hist={'A': 70, 'B': 54, 'C': 58, 'D': 61} | elapsed=655s
+
+[synth_phase1] DONE category=hinting
+  wrote 243 records to data/tom/raw/synth_phase1_hinting.jsonl
+  failed: 53
+  deepseek picked wrong gold: 175
+  final gold distribution: {'A': 70, 'B': 54, 'C': 58, 'D': 61}

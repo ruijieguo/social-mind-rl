@@ -1,0 +1,44 @@
+ Container synth_faux_pas Creating 
+ Container synth_faux_pas Created 
+[synth_phase1] category=faux_pas | n=800 | concurrency=8
+[synth_phase1] plan: 800 calls, balanced over languages x gold letters ('A', 'B')
+[faux_pas] 25/800 | ok=25 fail=0 deepseek_used_wrong_gold=10 | 1.0 req/s | hist={'A': 14, 'B': 11, 'C': 0, 'D': 0} | elapsed=24s
+[faux_pas] 50/800 | ok=50 fail=0 deepseek_used_wrong_gold=26 | 1.1 req/s | hist={'A': 26, 'B': 24, 'C': 0, 'D': 0} | elapsed=44s
+[faux_pas] 75/800 | ok=75 fail=0 deepseek_used_wrong_gold=38 | 1.2 req/s | hist={'A': 43, 'B': 32, 'C': 0, 'D': 0} | elapsed=63s
+[faux_pas] 100/800 | ok=100 fail=0 deepseek_used_wrong_gold=50 | 1.2 req/s | hist={'A': 53, 'B': 47, 'C': 0, 'D': 0} | elapsed=84s
+[faux_pas] 125/800 | ok=125 fail=0 deepseek_used_wrong_gold=64 | 1.2 req/s | hist={'A': 64, 'B': 61, 'C': 0, 'D': 0} | elapsed=101s
+[faux_pas] 150/800 | ok=150 fail=0 deepseek_used_wrong_gold=71 | 1.2 req/s | hist={'A': 76, 'B': 74, 'C': 0, 'D': 0} | elapsed=121s
+[faux_pas] 175/800 | ok=175 fail=0 deepseek_used_wrong_gold=84 | 1.3 req/s | hist={'A': 90, 'B': 85, 'C': 0, 'D': 0} | elapsed=138s
+[faux_pas] 200/800 | ok=200 fail=0 deepseek_used_wrong_gold=93 | 1.3 req/s | hist={'A': 102, 'B': 98, 'C': 0, 'D': 0} | elapsed=157s
+[faux_pas] 225/800 | ok=225 fail=0 deepseek_used_wrong_gold=104 | 1.3 req/s | hist={'A': 112, 'B': 113, 'C': 0, 'D': 0} | elapsed=175s
+[faux_pas] 250/800 | ok=250 fail=0 deepseek_used_wrong_gold=114 | 1.3 req/s | hist={'A': 129, 'B': 121, 'C': 0, 'D': 0} | elapsed=196s
+[faux_pas] 275/800 | ok=275 fail=0 deepseek_used_wrong_gold=120 | 1.3 req/s | hist={'A': 144, 'B': 131, 'C': 0, 'D': 0} | elapsed=217s
+[faux_pas] 300/800 | ok=300 fail=0 deepseek_used_wrong_gold=130 | 1.3 req/s | hist={'A': 155, 'B': 145, 'C': 0, 'D': 0} | elapsed=238s
+[faux_pas] 325/800 | ok=325 fail=0 deepseek_used_wrong_gold=139 | 1.2 req/s | hist={'A': 168, 'B': 157, 'C': 0, 'D': 0} | elapsed=261s
+[faux_pas] 350/800 | ok=350 fail=0 deepseek_used_wrong_gold=150 | 1.2 req/s | hist={'A': 181, 'B': 169, 'C': 0, 'D': 0} | elapsed=285s
+[faux_pas] 375/800 | ok=375 fail=0 deepseek_used_wrong_gold=157 | 1.2 req/s | hist={'A': 192, 'B': 183, 'C': 0, 'D': 0} | elapsed=309s
+[faux_pas] 400/800 | ok=400 fail=0 deepseek_used_wrong_gold=166 | 1.2 req/s | hist={'A': 204, 'B': 196, 'C': 0, 'D': 0} | elapsed=331s
+[faux_pas] 425/800 | ok=425 fail=0 deepseek_used_wrong_gold=180 | 1.2 req/s | hist={'A': 216, 'B': 209, 'C': 0, 'D': 0} | elapsed=349s
+[faux_pas] 450/800 | ok=450 fail=0 deepseek_used_wrong_gold=187 | 1.2 req/s | hist={'A': 231, 'B': 219, 'C': 0, 'D': 0} | elapsed=371s
+[synth_phase1] faux_pas/en/gold=A failed after 3: parse failed; content[:100]='{\n '
+[faux_pas] 475/800 | ok=474 fail=1 deepseek_used_wrong_gold=199 | 1.2 req/s | hist={'A': 246, 'B': 228, 'C': 0, 'D': 0} | elapsed=396s
+[faux_pas] 500/800 | ok=499 fail=1 deepseek_used_wrong_gold=211 | 1.2 req/s | hist={'A': 257, 'B': 242, 'C': 0, 'D': 0} | elapsed=414s
+[faux_pas] 525/800 | ok=524 fail=1 deepseek_used_wrong_gold=218 | 1.2 req/s | hist={'A': 268, 'B': 256, 'C': 0, 'D': 0} | elapsed=436s
+[faux_pas] 550/800 | ok=549 fail=1 deepseek_used_wrong_gold=228 | 1.2 req/s | hist={'A': 279, 'B': 270, 'C': 0, 'D': 0} | elapsed=454s
+[faux_pas] 575/800 | ok=574 fail=1 deepseek_used_wrong_gold=236 | 1.2 req/s | hist={'A': 288, 'B': 286, 'C': 0, 'D': 0} | elapsed=471s
+[faux_pas] 600/800 | ok=599 fail=1 deepseek_used_wrong_gold=249 | 1.2 req/s | hist={'A': 299, 'B': 300, 'C': 0, 'D': 0} | elapsed=491s
+[faux_pas] 625/800 | ok=624 fail=1 deepseek_used_wrong_gold=257 | 1.2 req/s | hist={'A': 308, 'B': 316, 'C': 0, 'D': 0} | elapsed=511s
+[faux_pas] 650/800 | ok=649 fail=1 deepseek_used_wrong_gold=266 | 1.2 req/s | hist={'A': 319, 'B': 330, 'C': 0, 'D': 0} | elapsed=531s
+[faux_pas] 675/800 | ok=674 fail=1 deepseek_used_wrong_gold=282 | 1.2 req/s | hist={'A': 334, 'B': 340, 'C': 0, 'D': 0} | elapsed=551s
+[faux_pas] 700/800 | ok=699 fail=1 deepseek_used_wrong_gold=290 | 1.2 req/s | hist={'A': 349, 'B': 350, 'C': 0, 'D': 0} | elapsed=570s
+[faux_pas] 725/800 | ok=724 fail=1 deepseek_used_wrong_gold=301 | 1.2 req/s | hist={'A': 362, 'B': 362, 'C': 0, 'D': 0} | elapsed=590s
+[faux_pas] 750/800 | ok=749 fail=1 deepseek_used_wrong_gold=310 | 1.2 req/s | hist={'A': 375, 'B': 374, 'C': 0, 'D': 0} | elapsed=608s
+[faux_pas] 775/800 | ok=774 fail=1 deepseek_used_wrong_gold=323 | 1.2 req/s | hist={'A': 384, 'B': 390, 'C': 0, 'D': 0} | elapsed=627s
+[faux_pas] 800/800 | ok=799 fail=1 deepseek_used_wrong_gold=334 | 1.2 req/s | hist={'A': 399, 'B': 400, 'C': 0, 'D': 0} | elapsed=645s
+
+[synth_phase1] DONE category=faux_pas
+  wrote 799 records to data/tom/raw/synth_phase1_faux_pas.jsonl
+  failed: 1
+  deepseek picked wrong gold: 334
+  final gold distribution: {'A': 399, 'B': 400, 'C': 0, 'D': 0}
+  WARNING: gold B is 50% — possible mode collapse

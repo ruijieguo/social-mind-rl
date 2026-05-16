@@ -13,6 +13,17 @@ venv/
 # Runtime products (will be regenerated)
 /data/
 output/
+# But DO track training data so it's reproducible across machines.
+# raw/ contains the per-source jsonls (ToMBench ingest, exploretom,
+# simpletom, synth*); the merged tom_train*.jsonl + dedup_report +
+# eval files are the canonical training/eval artifacts.
+!/data/tom/
+!/data/tom/raw/
+!/data/tom/raw/*.jsonl
+!/data/tom/*.jsonl
+!/data/tom/*.json
+# Eval files have known sizes (~2-3 MB), train data ~100 MB total,
+# all small enough for git (no need for git-lfs).
 
 # Local deployment env
 configs/deploy.env

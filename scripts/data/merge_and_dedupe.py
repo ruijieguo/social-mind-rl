@@ -105,6 +105,13 @@ def main():
         "simpletom":  raw_dir / "simpletom.jsonl",
         "socialiqa":  raw_dir / "socialiqa.jsonl",
         "synth":      raw_dir / "synth.jsonl",
+        # Phase 1 (2026-05-16) targeted synthesis. See docs/badcase_analysis.md.
+        # Each source already has source="synth_phase1" in its records, so they
+        # remain identifiable in the merged file.
+        "synth_phase1_faux_pas":  raw_dir / "synth_phase1_faux_pas.jsonl",
+        "synth_phase1_hinting":   raw_dir / "synth_phase1_hinting.jsonl",
+        "synth_phase1_scalar":    raw_dir / "synth_phase1_scalar.jsonl",
+        "synth_phase1_so_belief": raw_dir / "synth_phase1_so_belief.jsonl",
     }
 
     # Step 1: Load ToMBench eval into MinHash index

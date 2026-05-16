@@ -1,0 +1,22 @@
+ Container synth_so_belief Creating 
+ Container synth_so_belief Created 
+[synth_phase1] category=so_belief | n=300 | concurrency=4
+[synth_phase1] plan: 296 calls, balanced over languages x gold letters ('A', 'B', 'C', 'D')
+[so_belief] 25/296 | ok=25 fail=0 deepseek_used_wrong_gold=19 | 0.1 req/s | hist={'A': 7, 'B': 4, 'C': 7, 'D': 7} | elapsed=235s
+[so_belief] 50/296 | ok=50 fail=0 deepseek_used_wrong_gold=29 | 0.1 req/s | hist={'A': 11, 'B': 16, 'C': 10, 'D': 13} | elapsed=487s
+[so_belief] 75/296 | ok=75 fail=0 deepseek_used_wrong_gold=41 | 0.1 req/s | hist={'A': 20, 'B': 18, 'C': 15, 'D': 22} | elapsed=769s
+[so_belief] 100/296 | ok=100 fail=0 deepseek_used_wrong_gold=52 | 0.1 req/s | hist={'A': 25, 'B': 24, 'C': 23, 'D': 28} | elapsed=1029s
+[so_belief] 125/296 | ok=125 fail=0 deepseek_used_wrong_gold=64 | 0.1 req/s | hist={'A': 35, 'B': 27, 'C': 28, 'D': 35} | elapsed=1244s
+[so_belief] 150/296 | ok=150 fail=0 deepseek_used_wrong_gold=72 | 0.1 req/s | hist={'A': 42, 'B': 36, 'C': 34, 'D': 38} | elapsed=1500s
+[so_belief] 175/296 | ok=175 fail=0 deepseek_used_wrong_gold=77 | 0.1 req/s | hist={'A': 47, 'B': 40, 'C': 45, 'D': 43} | elapsed=1722s
+[so_belief] 200/296 | ok=200 fail=0 deepseek_used_wrong_gold=85 | 0.1 req/s | hist={'A': 52, 'B': 46, 'C': 51, 'D': 51} | elapsed=1973s
+[so_belief] 225/296 | ok=225 fail=0 deepseek_used_wrong_gold=95 | 0.1 req/s | hist={'A': 55, 'B': 54, 'C': 56, 'D': 60} | elapsed=2192s
+[so_belief] 250/296 | ok=250 fail=0 deepseek_used_wrong_gold=111 | 0.1 req/s | hist={'A': 61, 'B': 62, 'C': 61, 'D': 66} | elapsed=2435s
+[so_belief] 275/296 | ok=275 fail=0 deepseek_used_wrong_gold=120 | 0.1 req/s | hist={'A': 69, 'B': 68, 'C': 69, 'D': 69} | elapsed=2665s
+[so_belief] 296/296 | ok=296 fail=0 deepseek_used_wrong_gold=133 | 0.1 req/s | hist={'A': 74, 'B': 74, 'C': 74, 'D': 74} | elapsed=2827s
+
+[synth_phase1] DONE category=so_belief
+  wrote 296 records to data/tom/raw/synth_phase1_so_belief.jsonl
+  failed: 0
+  deepseek picked wrong gold: 133
+  final gold distribution: {'A': 74, 'B': 74, 'C': 74, 'D': 74}

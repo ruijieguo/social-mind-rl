@@ -1,0 +1,42 @@
+ Container synth_scalar_flash Creating 
+ Container synth_scalar_flash Created 
+[synth_phase1] category=scalar | n=400 | concurrency=8
+[synth_phase1] plan: 400 calls, balanced over languages x gold letters ('A', 'B', 'C', 'D')
+[scalar] 25/400 | ok=25 fail=0 deepseek_used_wrong_gold=16 | 0.2 req/s | hist={'A': 7, 'B': 6, 'C': 7, 'D': 5} | elapsed=162s
+[scalar] 50/400 | ok=50 fail=0 deepseek_used_wrong_gold=31 | 0.2 req/s | hist={'A': 16, 'B': 9, 'C': 15, 'D': 10} | elapsed=297s
+[scalar] 75/400 | ok=75 fail=0 deepseek_used_wrong_gold=50 | 0.2 req/s | hist={'A': 22, 'B': 15, 'C': 21, 'D': 17} | elapsed=437s
+[synth_phase1] scalar/en/gold=A failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/en/gold=C failed after 3: parse failed; content[:100]=''
+[scalar] 100/400 | ok=98 fail=2 deepseek_used_wrong_gold=63 | 0.2 req/s | hist={'A': 26, 'B': 22, 'C': 24, 'D': 26} | elapsed=633s
+[scalar] 125/400 | ok=123 fail=2 deepseek_used_wrong_gold=77 | 0.2 req/s | hist={'A': 34, 'B': 30, 'C': 25, 'D': 34} | elapsed=786s
+[scalar] 150/400 | ok=148 fail=2 deepseek_used_wrong_gold=96 | 0.2 req/s | hist={'A': 42, 'B': 34, 'C': 37, 'D': 35} | elapsed=949s
+[synth_phase1] scalar/en/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/zh/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/zh/gold=C failed after 3: parse failed; content[:100]='{\n  "story": "学校家长开放日，苏婉对顾岚说：“这次我们班来了50位家长，大部分是'
+[scalar] 175/400 | ok=170 fail=5 deepseek_used_wrong_gold=112 | 0.2 req/s | hist={'A': 48, 'B': 41, 'C': 46, 'D': 35} | elapsed=1081s
+[scalar] 200/400 | ok=195 fail=5 deepseek_used_wrong_gold=127 | 0.2 req/s | hist={'A': 52, 'B': 49, 'C': 53, 'D': 41} | elapsed=1221s
+[scalar] 225/400 | ok=220 fail=5 deepseek_used_wrong_gold=151 | 0.2 req/s | hist={'A': 59, 'B': 55, 'C': 59, 'D': 47} | elapsed=1361s
+[synth_phase1] scalar/zh/gold=D failed after 3: parse failed; content[:100]=''
+[scalar] 250/400 | ok=244 fail=6 deepseek_used_wrong_gold=170 | 0.2 req/s | hist={'A': 64, 'B': 60, 'C': 64, 'D': 56} | elapsed=1537s
+[synth_phase1] scalar/zh/gold=B failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/zh/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/en/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/zh/gold=D failed after 3: parse failed; content[:100]=''
+[scalar] 275/400 | ok=265 fail=10 deepseek_used_wrong_gold=185 | 0.2 req/s | hist={'A': 69, 'B': 67, 'C': 69, 'D': 60} | elapsed=1699s
+[synth_phase1] scalar/zh/gold=D failed after 3: parse failed; content[:100]=''
+[scalar] 300/400 | ok=289 fail=11 deepseek_used_wrong_gold=203 | 0.2 req/s | hist={'A': 77, 'B': 74, 'C': 73, 'D': 65} | elapsed=1816s
+[scalar] 325/400 | ok=314 fail=11 deepseek_used_wrong_gold=219 | 0.2 req/s | hist={'A': 84, 'B': 85, 'C': 74, 'D': 71} | elapsed=1984s
+[synth_phase1] scalar/en/gold=C failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/en/gold=A failed after 3: parse failed; content[:100]=''
+[scalar] 350/400 | ok=337 fail=13 deepseek_used_wrong_gold=238 | 0.2 req/s | hist={'A': 88, 'B': 87, 'C': 82, 'D': 80} | elapsed=2152s
+[scalar] 375/400 | ok=362 fail=13 deepseek_used_wrong_gold=257 | 0.2 req/s | hist={'A': 93, 'B': 91, 'C': 89, 'D': 89} | elapsed=2326s
+[synth_phase1] scalar/en/gold=D failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/en/gold=A failed after 3: parse failed; content[:100]=''
+[synth_phase1] scalar/zh/gold=B failed after 3: parse failed; content[:100]=''
+[scalar] 400/400 | ok=384 fail=16 deepseek_used_wrong_gold=271 | 0.2 req/s | hist={'A': 97, 'B': 98, 'C': 95, 'D': 94} | elapsed=2495s
+
+[synth_phase1] DONE category=scalar
+  wrote 384 records to data/tom/raw/synth_phase1_scalar_flash.jsonl
+  failed: 16
+  deepseek picked wrong gold: 271
+  final gold distribution: {'A': 97, 'B': 98, 'C': 95, 'D': 94}

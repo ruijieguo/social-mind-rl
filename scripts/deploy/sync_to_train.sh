@@ -28,6 +28,7 @@ rsync -avz --delete \
   --exclude='**/build/' \
   --exclude='**/.DS_Store' \
   --exclude='**/node_modules' \
+  --exclude='logs' \
   -e "ssh -i ${TRAIN_SSH_KEY}" \
   ./ "${TRAIN_HOST}:${TRAIN_PATH}/"
 
