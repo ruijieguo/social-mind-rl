@@ -6,11 +6,11 @@ Generated from `merge_and_dedupe.py`.
 - **exploretom**: 2000
 - **simpletom**: 1000
 - **synth**: 2911
-- **synth_phase1**: 991
+- **synth_phase1**: 990
 
 ## Leakage audit
 - Records dropped (>0.6 Jaccard with any ToMBench eval question): 0
-- Records dropped (internal near-dup >0.7): 802
+- Records dropped (internal near-dup >0.7): 803
 
 ## Per-source max-Jaccard vs ToMBench eval
 | Source | n | mean | p95 | max |

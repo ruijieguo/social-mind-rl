@@ -1,7 +1,7 @@
 {
-  "n_total_survived": 6902,
+  "n_total_survived": 6901,
   "n_dropped_by_eval_leakage": 0,
-  "n_dropped_by_internal_dedupe": 802,
+  "n_dropped_by_internal_dedupe": 803,
   "per_source_max_jaccard_distribution": {
     "hi_tom": {
       "mean": 0.0,
