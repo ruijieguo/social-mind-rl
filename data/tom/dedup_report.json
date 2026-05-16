@@ -1,0 +1,61 @@
+{
+  "n_total_survived": 6902,
+  "n_dropped_by_eval_leakage": 0,
+  "n_dropped_by_internal_dedupe": 802,
+  "per_source_max_jaccard_distribution": {
+    "hi_tom": {
+      "mean": 0.0,
+      "max": 0.0,
+      "p95": 0.0,
+      "n": 0
+    },
+    "exploretom": {
+      "mean": 0.0,
+      "max": 0.0,
+      "p95": 0.0,
+      "n": 2000
+    },
+    "simpletom": {
+      "mean": 0.0,
+      "max": 0.0,
+      "p95": 0.0,
+      "n": 1000
+    },
+    "socialiqa": {
+      "mean": 0.0,
+      "max": 0.0,
+      "p95": 0.0,
+      "n": 0
+    },
+    "synth": {
+      "mean": 0.0,
+      "max": 0.0,
+      "p95": 0.0,
+      "n": 2917
+    },
+    "synth_phase1_faux_pas": {
+      "mean": 0.0,
+      "max": 0.0,
+      "p95": 0.0,
+      "n": 799
+    },
+    "synth_phase1_hinting": {
+      "mean": 0.0,
+      "max": 0.0,
+      "p95": 0.0,
+      "n": 243
+    },
+    "synth_phase1_scalar": {
+      "mean": 0.0,
+      "max": 0.0,
+      "p95": 0.0,
+      "n": 449
+    },
+    "synth_phase1_so_belief": {
+      "mean": 0.0,
+      "max": 0.0,
+      "p95": 0.0,
+      "n": 296
+    }
+  }
+}
