@@ -133,6 +133,15 @@ RUN pip install /tmp/roll-reqs/mcore_adapter --no-deps
 # https://discuss.ray.io/t/ray-start-head-failing-due-to-not-valid-sentinel/23121
 RUN pip install --no-deps 'click==8.2.1'
 
+# Pin setuptools<75 so pkg_resources is still bundled with setuptools.
+# vllm 0.8.4's TP>1 ray-distributed-executor path uses pkg_resources at
+# runtime (see vllm/executor/ray_distributed_executor.py:_check_ray_cgraph_installation).
+# setuptools>=75 split pkg_resources into its own distribution, breaking
+# that import. Symptoms: ModuleNotFoundError pkg_resources at the moment
+# vllm tries to compile a Ray DAG (i.e. the first inference batch with TP>1).
+# Affects 14B training but not 8B (8B uses TP=1, no Ray DAG path).
+RUN pip install --no-deps 'setuptools<75'
+
 # Install ROLL in editable mode (source is mounted at runtime)
 # We DON'T `pip install -e .` here because the source is mounted; instead
 # we set PYTHONPATH at runtime via entrypoint.
