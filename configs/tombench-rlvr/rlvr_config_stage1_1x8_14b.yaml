@@ -1,0 +1,198 @@
+# Stage-1 (1x8 H800, Qwen3-14B): 14B verification (4k data x 200 steps)
+#
+# Differences from rlvr_config_stage1_1x8.yaml (Qwen3-8B):
+#   - pretrain: Qwen3-8B -> Qwen3-14B (model size +75%)
+#   - actor_train.tensor_model_parallel_size: 1 -> 2
+#     (14B fp16 + grad + dist-opt 1/8 ~= 50 GB at TP=1 per rank, plus vllm
+#      and reference colocated ~30 GB, total > 80 GB on 80 GB H800. TP=2
+#      cuts the actor_train footprint in half so colocated total fits.)
+#   - reference.tensor_model_parallel_size: 1 -> 2 (same logic)
+#   - actor_infer (vllm).gpu_memory_utilization: 0.6 -> 0.45
+#     (14B vllm KV cache scales linearly with hidden size; 0.45 still gives
+#      ~36 GB to vllm which is enough for prompt_length 1024 + response 256
+#      with concurrency 128.)
+#   - actor_infer (vllm).tensor_parallel_size: 1 -> 2
+#     (vllm needs to match actor_train TP for the ROLL weight-sync path to
+#      bucket parameters correctly.)
+#   - prompt_length: 2048 -> 1024 (KV cache halved -> more room for vllm.
+#      Most ToMBench prompts fit in 1024; verified by p95 of tombench_eval.jsonl).
+#   - response_length: 256 (unchanged; still the main answer-format budget)
+#   - rollout_batch_size: 32 (unchanged; effective batch 32 prompts x 8 = 256)
+#   - data: tom_train_4k.jsonl (4k subset, same as 8B stage1) so we can
+#     measure 14B vs 8B head-to-head on the SAME data.
+#   - max_steps: 200 (same as 8B stage1)
+#   - DOUBLE save mem-efficient gather time: 14B optimizer state ~2x larger.
+#     Already using distrib_optim_fully_reshardable_mem_efficient=true.
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+exp_name: "qwen3-14B-tombench-rlvr-stage1-1x8"
+seed: 42
+logging_dir: ./output/logs
+output_dir: ./output
+system_envs:
+  USE_MODELSCOPE: '1'
+
+checkpoint_config:
+  type: file_system
+  output_dir: /mnt/output/${exp_name}
+
+track_with: stdout
+tracker_kwargs: {}
+
+num_gpus_per_node: 8
+
+max_steps: 200
+save_steps: 200
+logging_steps: 1
+eval_steps: 50
+resume_from_checkpoint: false
+
+rollout_batch_size: 32
+# Halved from 2048 to 1024 to fit 14B KV cache in vllm's 0.45 mem fraction.
+prompt_length: 1024
+response_length: 256
+
+num_return_sequences_in_group: 8
+ppo_epochs: 1
+adv_estimator: "grpo"
+
+use_pg_clip_range: true
+pg_clip_low: 0.20
+pg_clip_high: 0.28
+dual_clip_loss: true
+
+value_clip: 0.5
+reward_clip: 5
+advantage_clip: 2.0
+
+norm_mean_type: ~
+norm_std_type: ~
+
+max_len_mask: true
+difficulty_mask: true
+difficulty_low_threshold: 0.1
+difficulty_high_threshold: 0.95
+error_max_len_clip: false
+
+difficulty_loss_weight: false
+length_loss_weight: false
+
+add_token_level_kl: false
+
+whiten_advantages: true
+
+use_additional_prompts: true
+max_running_requests: 128
+is_num_return_sequences_expand: false
+
+pretrain: Qwen/Qwen3-14B
+reward_pretrain: Qwen/Qwen3-14B
+
+validation:
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tombench_eval_subset500.jsonl
+  generating_args:
+    max_new_tokens: 64
+    top_p: 1.0
+    top_k: -1
+    num_beams: 1
+    temperature: 0.0
+    num_return_sequences: 1
+
+actor_train:
+  model_args:
+    disable_gradient_checkpointing: false
+    dtype: bf16
+    model_type: ~
+  training_args:
+    learning_rate: 1.0e-6
+    weight_decay: 0
+    per_device_train_batch_size: 1
+    gradient_accumulation_steps: 32
+    warmup_steps: 20
+    num_train_epochs: 50
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tom_train_4k.jsonl
+    domain_interleave_probs:
+      tom_mcq: 1.0
+    dataset_dir: /mnt/data
+    messages: messages
+    interleave_probs: "1.0"
+    preprocessing_num_workers: 16
+  strategy_args:
+    strategy_name: megatron_train
+    strategy_config:
+      # 14B + 1x8 needs TP=2 to fit. With TP=2, model+grad+optimizer is
+      # split over 2 GPUs in each DP shard, so per-GPU memory drops ~half.
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+      use_distributed_optimizer: true
+      distrib_optim_fully_reshardable_mem_efficient: true
+      recompute_granularity: full
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+actor_infer:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+  generating_args:
+    max_new_tokens: ${response_length}
+    top_p: 0.95
+    top_k: 50
+    num_beams: 1
+    temperature: 0.99
+    num_return_sequences: ${num_return_sequences_in_group}
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: vllm
+    strategy_config:
+      # vllm gpu_memory_utilization 0.6 -> 0.45 for 14B (reduces KV cache
+      # to leave room for actor_train+ref colocated)
+      gpu_memory_utilization: 0.45
+      block_size: 16
+      max_model_len: 2048
+      # vllm TP must match actor_train's TP so ROLL's weight-sync route
+      # can bucket parameters per-rank correctly.
+      tensor_parallel_size: 2
+  device_mapping: list(range(0,8))
+  infer_batch_size: 1
+
+reference:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+    model_type: ~
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: megatron_infer
+    strategy_config:
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+rewards:
+  tom_mcq:
+    worker_cls: roll.pipeline.rlvr.rewards.tom_mcq_reward_worker.TomMcqRewardWorker
+    tag_included: [tom_mcq]
+    model_args:
+      model_name_or_path: ${reward_pretrain}
+    data_args:
+      template: qwen3
+    world_size: 8
+    infer_batch_size: 16
+    l_min: 8
+    l_max: 256
+    k: 50

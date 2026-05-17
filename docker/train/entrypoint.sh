@@ -26,7 +26,7 @@ echo "=========================================="
 
 # Verify data + models present
 case "${STAGE}" in
-  stage1|stage1_1x8|stage1_2x8)
+  stage1|stage1_1x8|stage1_2x8|stage1_1x8_14b)
     DATA_FILE="/mnt/data/tom_train_4k.jsonl"
     ;;
   stage2|stage2_1x8|stage2_2x8|stage3_1x8|stage3_l3)
