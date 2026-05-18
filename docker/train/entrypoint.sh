@@ -29,8 +29,8 @@ case "${STAGE}" in
   stage1|stage1_1x8|stage1_2x8|stage1_1x8_14b)
     DATA_FILE="/mnt/data/tom_train_4k.jsonl"
     ;;
-  stage6|stage6_1x8|stage6_1x8_14b)
-    # Stage 6 uses the FULL cleaned tom_train.jsonl (7259 records, post-audit)
+  stage6|stage6_1x8|stage6_1x8_14b|stage7|stage7_1x8|stage7_1x8_14b)
+    # Stage 6/7 use the FULL cleaned tom_train.jsonl (post-audit + GPT-5.5 synth)
     DATA_FILE="/mnt/data/tom_train.jsonl"
     ;;
   stage2|stage2_1x8|stage2_2x8|stage3_1x8|stage3_l3)

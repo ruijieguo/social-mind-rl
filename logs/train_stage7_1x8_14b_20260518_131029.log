@@ -1,0 +1,119 @@
+ Image qwen3-tom-train:latest Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 534B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 8.49kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for nvcr.io/nvidia/pytorch:24.05-py3
+#3 DONE 2.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 130B done
+#4 DONE 0.0s
+
+#5 [ 1/22] FROM nvcr.io/nvidia/pytorch:24.05-py3@sha256:d4030fc006cce2e56497fa07d003c5996de0eb7bde3610599fedbe7e7d03adea
+#5 resolve nvcr.io/nvidia/pytorch:24.05-py3@sha256:d4030fc006cce2e56497fa07d003c5996de0eb7bde3610599fedbe7e7d03adea 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 10.60kB 0.0s done
+#6 DONE 0.0s
+
+#7 [ 8/22] RUN pip uninstall -y opencv opencv-python opencv-python-headless || true &&     rm -rf /usr/local/lib/python3.10/dist-packages/cv2/ &&     pip install opencv-python-headless==4.11.0.86
+#7 CACHED
+
+#8 [ 9/22] RUN pip install --no-build-isolation       "numpy==1.26.4" "optree>=0.13.0" "spacy==3.7.5" "weasel==0.4.1"       "psutil" "py-cpuinfo" "hjson" "ninja" "pydantic"       "packaging" "pyyaml" "msgpack" "tqdm"
+#8 CACHED
+
+#9 [21/22] COPY docker/train/entrypoint.sh /usr/local/bin/entrypoint.sh
+#9 CACHED
+
+#10 [ 2/22] RUN apt-get update && apt-get install -y --no-install-recommends     git curl ca-certificates rsync openssh-client     && rm -rf /var/lib/apt/lists/*
+#10 CACHED
+
+#11 [16/22] RUN sed -i '/^\.\/mcore_adapter$/d' /tmp/roll-reqs/requirements_common.txt &&     cd /tmp/roll-reqs && pip install -r requirements_common.txt
+#11 CACHED
+
+#12 [ 5/22] RUN pip uninstall -y torch torchvision torch-tensorrt     flash_attn transformer-engine     cudf dask-cuda cugraph cugraph-service-server cuml raft-dask     cugraph-dgl cugraph-pyg dask-cudf || true
+#12 CACHED
+
+#13 [11/22] RUN pip install --no-build-isolation --no-deps       megatron-core==0.16.0       deepspeed==0.16.4
+#13 CACHED
+
+#14 [ 6/22] RUN mkdir -p /tmp/torch-wheels && cd /tmp/torch-wheels &&     for f in       torch-2.6.0+cu124-cp310-cp310-linux_x86_64.whl       torchvision-0.21.0+cu124-cp310-cp310-linux_x86_64.whl       torchaudio-2.6.0+cu124-cp310-cp310-linux_x86_64.whl ; do         echo "downloading $f ..." &&         curl -fL --retry 20 --retry-delay 5 --retry-all-errors -C -              -o "$f" "https://mirrors.aliyun.com/pytorch-wheels/cu124/$f" ;     done &&     pip install ./torch-2.6.0+cu124-cp310-cp310-linux_x86_64.whl                 ./torchvision-0.21.0+cu124-cp310-cp310-linux_x86_64.whl                 ./torchaudio-2.6.0+cu124-cp310-cp310-linux_x86_64.whl &&     rm -rf /tmp/torch-wheels
+#14 CACHED
+
+#15 [ 7/22] RUN echo "torch==2.6.0+cu124" >  /tmp/constraints.txt &&     echo "torchvision==0.21.0+cu124" >> /tmp/constraints.txt &&     echo "torchaudio==2.6.0+cu124" >> /tmp/constraints.txt &&     echo "transformer-engine==2.2.0" >> /tmp/constraints.txt &&     echo "transformer-engine-torch==2.2.0" >> /tmp/constraints.txt &&     echo "transformer-engine-cu12==2.2.0" >> /tmp/constraints.txt &&     echo "deepspeed==0.16.4" >> /tmp/constraints.txt &&     echo "vllm==0.8.4" >> /tmp/constraints.txt &&     echo "megatron-core==0.16.0" >> /tmp/constraints.txt &&     echo "transformers<5.0" >> /tmp/constraints.txt &&     echo "transformers>=4.51,<4.55" >> /tmp/constraints.txt
+#15 CACHED
+
+#16 [19/22] RUN pip install --no-deps 'setuptools<75'
+#16 CACHED
+
+#17 [10/22] RUN pip install --no-build-isolation --no-deps       transformer-engine==2.2.0       transformer-engine-torch==2.2.0       transformer-engine-cu12==2.2.0
+#17 CACHED
+
+#18 [12/22] RUN pip install vllm==0.8.4
+#18 CACHED
+
+#19 [20/22] RUN python -c "import torch, vllm; print('torch', torch.__version__, 'vllm', vllm.__version__)" ||     echo "vllm not yet importable; will resolve at runtime"
+#19 CACHED
+
+#20 [18/22] RUN pip install --no-deps 'click==8.2.1'
+#20 CACHED
+
+#21 [ 3/22] WORKDIR /workspace
+#21 CACHED
+
+#22 [13/22] COPY framework/ROLL/requirements_common.txt /tmp/roll-reqs/requirements_common.txt
+#22 CACHED
+
+#23 [15/22] COPY framework/ROLL/mcore_adapter          /tmp/roll-reqs/mcore_adapter
+#23 CACHED
+
+#24 [ 4/22] RUN pip install --upgrade pip setuptools wheel
+#24 CACHED
+
+#25 [14/22] COPY framework/ROLL/requirements_vision.txt /tmp/roll-reqs/requirements_vision.txt
+#25 CACHED
+
+#26 [17/22] RUN pip install /tmp/roll-reqs/mcore_adapter --no-deps
+#26 CACHED
+
+#27 [22/22] RUN chmod +x /usr/local/bin/entrypoint.sh
+#27 CACHED
+
+#28 exporting to image
+#28 exporting layers 0.0s done
+#28 exporting manifest sha256:1f5d3b6469e416339c79cea4fb4be7582e9986a3f84f8bf5731163d60bbc8a39 done
+#28 exporting config sha256:c3c23f91b8c0339019d0429664835300e6f8c013a6ba2f74fc5559e76c0107fd done
+#28 exporting attestation manifest sha256:cc0445210cdaee7cfcea597da1c1d5b3f3afbee9dbe49a2f43dffe1f02e3f418 done
+#28 exporting manifest list sha256:bcb87f8b4ab61eaa0a14240a8789877e8c83b5fa3a34a4289712feb3b943e573 done
+#28 naming to docker.io/library/qwen3-tom-train:latest done
+#28 unpacking to docker.io/library/qwen3-tom-train:latest 0.0s done
+#28 DONE 0.1s
+
+#29 resolving provenance for metadata file
+#29 DONE 0.0s
+ Image qwen3-tom-train:latest Built 
+ Container train-train-run-ca359a53b254 Creating 
+ Container train-train-run-ca359a53b254 Created 
+==========================================
+TRAIN entrypoint
+  stage:  stage7_1x8_14b
+  config: /workspace/configs/tombench-rlvr/rlvr_config_stage7_1x8_14b.yaml
+  CUDA visible: all
+  GPUs:
+0, NVIDIA H800, 81559 MiB
+1, NVIDIA H800, 81559 MiB
+2, NVIDIA H800, 81559 MiB
+3, NVIDIA H800, 81559 MiB
+4, NVIDIA H800, 81559 MiB
+5, NVIDIA H800, 81559 MiB
+6, NVIDIA H800, 81559 MiB
+7, NVIDIA H800, 81559 MiB
+==========================================
+ERROR: unknown STAGE=stage7_1x8_14b
+
