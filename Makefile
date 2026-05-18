@@ -107,6 +107,18 @@ train-stage1-1x8-14b: ## Phase 9 (1×8 H800): Qwen3-14B test (TP=2)
 	  --env-file configs/deploy.env \
 	  run --rm --build -e STAGE=stage1_1x8_14b train"
 
+train-stage8-1x8: ## Phase 15 (1×8 H800): Qwen3-8B stage8 (Phase C style-matched, 9259 records)
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=stage8_1x8 train"
+
+train-stage8-1x8-14b: ## Phase 14 (1×8 H800): Qwen3-14B stage8 (Phase C, 350 steps)
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=stage8_1x8_14b train"
+
 train-stage6-1x8: ## Phase 11 (1×8 H800): Qwen3-8B + cleaned data + GPT-5.5 synth (mirror 14B stage6)
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \

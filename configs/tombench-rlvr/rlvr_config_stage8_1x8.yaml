@@ -1,0 +1,187 @@
+# Stage-8 (1×8 H800, Qwen3-8B): mirror of 14B stage8
+#
+# Phase C style-matched data + longer training:
+#   base 7259 + phase_c 1200 (5-7 sentence style-matched) + phase_b_zh 800
+#   max_steps: 350 (vs stage7's 250)
+#   data: tom_train.jsonl 9259 records
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+exp_name: "qwen3-8B-tombench-rlvr-stage8-1x8"
+seed: 42
+logging_dir: ./output/logs
+output_dir: ./output
+system_envs:
+  USE_MODELSCOPE: '1'
+
+checkpoint_config:
+  type: file_system
+  output_dir: /mnt/output/${exp_name}
+
+track_with: stdout
+tracker_kwargs: {}
+
+num_gpus_per_node: 8
+
+max_steps: 350
+save_steps: 350
+logging_steps: 1
+eval_steps: 50
+resume_from_checkpoint: false
+
+# Halved from 64 to match the halved actor_infer GPU pool.
+# Effective rollout = 32 prompts × 8 samples = 256 sequences per step.
+rollout_batch_size: 32
+prompt_length: 2048
+response_length: 256
+
+num_return_sequences_in_group: 8
+ppo_epochs: 1
+adv_estimator: "grpo"
+
+# DAPO Clip-Higher
+use_pg_clip_range: true
+pg_clip_low: 0.20
+pg_clip_high: 0.28
+dual_clip_loss: true
+
+value_clip: 0.5
+reward_clip: 5
+advantage_clip: 2.0
+
+norm_mean_type: ~
+norm_std_type: ~
+
+max_len_mask: true
+difficulty_mask: true
+difficulty_low_threshold: 0.1
+difficulty_high_threshold: 0.95
+error_max_len_clip: false
+
+difficulty_loss_weight: false
+length_loss_weight: false
+
+add_token_level_kl: false
+
+whiten_advantages: true
+
+# DAPO Dynamic Sampling — buffer scaled with rollout batch.
+use_additional_prompts: true
+max_running_requests: 128
+is_num_return_sequences_expand: false
+
+pretrain: Qwen/Qwen3-8B
+reward_pretrain: Qwen/Qwen3-8B
+
+validation:
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tombench_eval_subset500.jsonl
+  generating_args:
+    max_new_tokens: 64
+    top_p: 1.0
+    top_k: -1
+    num_beams: 1
+    temperature: 0.0
+    num_return_sequences: 1
+
+actor_train:
+  model_args:
+    disable_gradient_checkpointing: false
+    dtype: bf16
+    model_type: ~
+  training_args:
+    learning_rate: 1.0e-6
+    weight_decay: 0
+    per_device_train_batch_size: 1
+    # Doubled from 32 → 64 to keep effective batch at 8×64=512 sequences
+    # rollout_batch_size=32 + grad_accum=32 → mini_batch divides cleanly
+    # (effective batch 32×8 group = 256 seqs; vs 512 of 2×8 we accept the
+    # half-batch since 1×8 has half the rollout pool anyway).
+    gradient_accumulation_steps: 32
+    warmup_steps: 20
+    num_train_epochs: 50
+  data_args:
+    template: qwen3
+    # FULL cleaned tom_train.jsonl (7259 records post-GPT-5.5-audit cleanup)
+    file_name:
+      - /mnt/data/tom_train.jsonl
+    domain_interleave_probs:
+      tom_mcq: 1.0
+    dataset_dir: /mnt/data
+    messages: messages
+    interleave_probs: "1.0"
+    preprocessing_num_workers: 16
+  strategy_args:
+    strategy_name: megatron_train
+    strategy_config:
+      tensor_model_parallel_size: 1
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+      use_distributed_optimizer: true
+      # Save optimizer state via Gloo+CPU gather (instead of NCCL+CUDA all_gather).
+      # In 1x8 colocated deployment vllm + train weights + optimizer occupy ~75 GiB
+      # leaving < 1 GiB free; the default save path needs ~3.81 GiB GPU buffer per
+      # rank for `recv_tensors` and OOMs at do_checkpoint. mem_efficient gathers
+      # to CPU on DP rank 0 only — a bit slower but unblocks save.
+      distrib_optim_fully_reshardable_mem_efficient: true
+      recompute_granularity: full
+  # All 8 GPUs of the single node.
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+actor_infer:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+  generating_args:
+    max_new_tokens: ${response_length}
+    top_p: 0.95
+    top_k: 50
+    num_beams: 1
+    temperature: 0.99
+    num_return_sequences: ${num_return_sequences_in_group}
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: vllm
+    strategy_config:
+      gpu_memory_utilization: 0.6
+      block_size: 16
+      max_model_len: 4096
+  # Colocate on all 8 GPUs with actor_train via ROLL offload manager.
+  device_mapping: list(range(0,8))
+  infer_batch_size: 1
+
+reference:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+    model_type: ~
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: megatron_infer
+    strategy_config:
+      tensor_model_parallel_size: 1
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+rewards:
+  tom_mcq:
+    worker_cls: roll.pipeline.rlvr.rewards.tom_mcq_reward_worker.TomMcqRewardWorker
+    tag_included: [tom_mcq]
+    model_args:
+      model_name_or_path: ${reward_pretrain}
+    data_args:
+      template: qwen3
+    world_size: 8
+    infer_batch_size: 16
+    l_min: 8
+    l_max: 256
+    k: 50
