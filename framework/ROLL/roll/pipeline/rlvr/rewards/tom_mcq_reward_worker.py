@@ -84,13 +84,27 @@ def tom_mcq_reward_fn(
     l_min: float = 8.0,
     l_max: float = 256.0,
     k: float = 50.0,
+    aggregation: str = "multiplicative",
+    r_fmt_weight: float = 0.05,
+    r_out_weight: float = 0.85,
+    r_len_weight: float = 0.10,
 ) -> Tuple[float, float, float, float]:
-    """Compute (r_fmt, r_out, r_len, r_total) for a single response."""
+    """Compute (r_fmt, r_out, r_len, r_total) for a single response.
+
+    aggregation:
+      - "multiplicative" (legacy):   r_total = r_fmt * r_out * r_len
+      - "weighted_sum"   (stage9+):  r_total = w_fmt*r_fmt + w_out*r_out + w_len*r_len
+        Weighted sum preserves credit for correct-but-format-imperfect responses.
+        Default weights (0.05/0.85/0.10) make r_out dominant.
+    """
     letter, fmt_ok = extract_boxed_letter(response)
     r_fmt = 1.0 if fmt_ok else 0.0
     r_out = 1.0 if (fmt_ok and letter == ground_truth) else 0.0
     r_len = sigmoid_window(float(response_token_count), l_min, l_max, k)
-    r_total = r_fmt * r_out * r_len
+    if aggregation == "weighted_sum":
+        r_total = r_fmt_weight * r_fmt + r_out_weight * r_out + r_len_weight * r_len
+    else:
+        r_total = r_fmt * r_out * r_len
     return r_fmt, r_out, r_len, r_total
 
 
@@ -116,6 +130,11 @@ class TomMcqRewardWorker(Worker):
         self.l_min = float(getattr(self.worker_config, "l_min", 8))
         self.l_max = float(getattr(self.worker_config, "l_max", 256))
         self.k = float(getattr(self.worker_config, "k", 50))
+        # Stage 9+: weighted-sum reward aggregation (vs legacy multiplicative)
+        self.aggregation = str(getattr(self.worker_config, "aggregation", "multiplicative"))
+        self.r_fmt_weight = float(getattr(self.worker_config, "r_fmt_weight", 0.05))
+        self.r_out_weight = float(getattr(self.worker_config, "r_out_weight", 0.85))
+        self.r_len_weight = float(getattr(self.worker_config, "r_len_weight", 0.10))
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
     def initialize(self, pipeline_config):
@@ -143,6 +162,10 @@ class TomMcqRewardWorker(Worker):
                 response_token_count=non_pad,
                 ground_truth=str(gold),
                 l_min=self.l_min, l_max=self.l_max, k=self.k,
+                aggregation=self.aggregation,
+                r_fmt_weight=self.r_fmt_weight,
+                r_out_weight=self.r_out_weight,
+                r_len_weight=self.r_len_weight,
             )
             scores.append(r_total)
             r_fmt_list.append(r_fmt)

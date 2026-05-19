@@ -121,3 +121,54 @@ def test_reward_chinese_response():
     assert r_fmt == 1.0
     assert r_out == 1.0
     assert r_total > 0.0
+
+
+def test_weighted_sum_correct_answer():
+    """Stage 9+: weighted_sum should give r_out_weight when format+answer correct."""
+    r_fmt, r_out, r_len, r_total = tom_mcq_reward_fn(
+        response="\\boxed{A}", response_token_count=200,
+        ground_truth="A", l_min=100, l_max=600, k=50,
+        aggregation="weighted_sum",
+        r_fmt_weight=0.05, r_out_weight=0.85, r_len_weight=0.10,
+    )
+    assert r_fmt == 1.0
+    assert r_out == 1.0
+    # 0.05 + 0.85 + 0.10 * r_len ≈ 0.95 + 0.10 * 0.95 ≈ 1.0
+    assert 0.95 < r_total <= 1.0
+
+
+def test_weighted_sum_wrong_format_keeps_some_credit():
+    """Wrong format gives 0 in multiplicative; weighted_sum keeps r_len credit."""
+    r_fmt_m, _, _, r_total_m = tom_mcq_reward_fn(
+        response="The answer is A.", response_token_count=200,
+        ground_truth="A", l_min=100, l_max=600, k=50,
+        aggregation="multiplicative",
+    )
+    r_fmt_w, _, r_len_w, r_total_w = tom_mcq_reward_fn(
+        response="The answer is A.", response_token_count=200,
+        ground_truth="A", l_min=100, l_max=600, k=50,
+        aggregation="weighted_sum",
+        r_fmt_weight=0.05, r_out_weight=0.85, r_len_weight=0.10,
+    )
+    assert r_fmt_m == 0.0
+    assert r_total_m == 0.0  # multiplicative: zero out
+    assert r_fmt_w == 0.0
+    # weighted_sum: still gets 0.10 * r_len credit
+    assert 0.05 < r_total_w < 0.15  # ~0.10 * r_len_high
+
+
+def test_weighted_sum_correct_but_format_off_still_partial():
+    """If model answers correctly with bad format, weighted_sum gives partial credit."""
+    # Note: r_out requires fmt_ok per current logic, so this stays 0.
+    # But weighted_sum still gives r_len component (vs multiplicative giving 0).
+    r_fmt, r_out, r_len, r_total = tom_mcq_reward_fn(
+        response="A is correct", response_token_count=150,
+        ground_truth="A", l_min=100, l_max=600, k=50,
+        aggregation="weighted_sum",
+        r_fmt_weight=0.05, r_out_weight=0.85, r_len_weight=0.10,
+    )
+    assert r_fmt == 0.0
+    assert r_out == 0.0
+    # Only r_len contributes
+    assert 0.05 < r_total < 0.15
+

@@ -1,0 +1,79 @@
+# Stage 9a SFT cold-start (1×8 H800, Qwen3-14B): SFT on GPT-5.5 reasoning traces
+#
+# Per docs/improvement_plan_v3.md S1, this is the missing SFT step in our stage 1-8
+# pipeline. Trains Qwen3-14B base on 4000 reasoning traces from GPT-5.5 to teach
+# structured ToM reasoning before RL.
+#
+# Output: /mnt/output/qwen3-14B-tom-sft-stage9/
+# This checkpoint is then used as init for stage 9 GRPO RL (rlvr_config_stage9_1x8_14b.yaml).
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+exp_name: "qwen3-14B-tom-sft-stage9"
+seed: 42
+logging_dir: ./output/logs
+output_dir: ./output
+
+system_envs:
+  USE_MODELSCOPE: '1'
+
+checkpoint_config:
+  type: file_system
+  output_dir: /mnt/output/${exp_name}
+
+track_with: stdout
+tracker_kwargs: {}
+
+num_gpus_per_node: 8
+
+# Save every 500 steps; with 4000 records / (8*4)=125 steps per epoch * 3 epochs = 375 steps total.
+# So just save at end (step 375 if it lands, else nearest).
+save_steps: 1000
+logging_steps: 5
+eval_steps: 100
+resume_from_checkpoint: false
+
+sequence_length: 2048
+
+pretrain: Qwen/Qwen3-14B
+
+# Alpaca-style key mapping (output of build_sft_data.py)
+system_key: system
+prompt_key: prompt
+response_key: response
+
+validation:
+  data_args:
+    file_name: /mnt/data/tom_train_sft_val.jsonl
+    template: qwen3
+
+sft_train:
+  model_args:
+    dtype: bf16
+  training_args:
+    num_train_epochs: 3
+    per_device_train_batch_size: 2
+    gradient_accumulation_steps: 8       # effective batch 128 (8 GPU * 2 * 8 / 1)
+    learning_rate: 5.0e-6
+    warmup_steps: 50
+    weight_decay: 0.01
+    lr_scheduler_type: cosine
+  data_args:
+    file_name: /mnt/data/tom_train_sft.jsonl
+    template: qwen3
+    preprocessing_num_workers: 8
+  strategy_args:
+    strategy_name: megatron_train
+    strategy_config:
+      tensor_model_parallel_size: 2
+      sequence_parallel: true
+      pipeline_model_parallel_size: 1
+      use_distributed_optimizer: true
+      distrib_optim_fully_reshardable_mem_efficient: true
+      recompute_granularity: full
+  use_sequence_packing: true
+  device_mapping: list(range(0,8))
+  infer_batch_size: 2

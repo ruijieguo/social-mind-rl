@@ -1,0 +1,215 @@
+# Stage 9 (1×8 H800, Qwen3-14B): SFT cold-start + Dr.GRPO + KL + entropy + long CoT
+#
+# Per docs/improvement_plan_v3.md, this is the first algorithmic-overhaul stage:
+#
+# 1. Init from SFT cold-start checkpoint (qwen3-14B-tom-sft-stage9, trained on
+#    4000 GPT-5.5 reasoning traces). Standard DeepSeek-R1 / Light-R1 / Magistral
+#    pipeline — we skipped this in stage 1-8.
+#
+# 2. Dr.GRPO loss fix (per Understanding R1-Zero, COLM 2025):
+#    - whiten_advantages: false   (don't divide by std, biases noise)
+#    - loss_agg_mode: "seq-mean-token-sum-norm" (max-len normalization, not actual length)
+#
+# 3. Token-level KL loss with low coef:
+#    - use_kl_loss: true
+#    - kl_loss_coef: 0.001  (vs stage3's failed 0.01)
+#
+# 4. Entropy bonus:
+#    - entropy_loss_coef: 0.01
+#
+# 5. Long CoT: response_length 256 -> 1024
+#    - val max_new_tokens: 64 -> 512
+#    - reward l_min: 8 -> 100, l_max: 256 -> 600 (encourage real reasoning chains)
+#
+# 6. Reward shaping (in tom_mcq_reward_worker):
+#    - r_total = 0.05*r_fmt + 0.85*r_out + 0.10*r_len   (weighted sum, not multiplication)
+#    - this preserves credit for correct-but-format-imperfect responses
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+exp_name: "qwen3-14B-tombench-rlvr-stage9-1x8"
+seed: 42
+logging_dir: ./output/logs
+output_dir: ./output
+system_envs:
+  USE_MODELSCOPE: '1'
+
+checkpoint_config:
+  type: file_system
+  output_dir: /mnt/output/${exp_name}
+
+track_with: stdout
+tracker_kwargs: {}
+
+num_gpus_per_node: 8
+
+max_steps: 350
+save_steps: 350
+logging_steps: 1
+eval_steps: 50
+resume_from_checkpoint: false
+
+rollout_batch_size: 32
+
+# Long CoT: 256 -> 1024 to allow multi-step reasoning chains
+prompt_length: 1024
+response_length: 1024
+
+num_return_sequences_in_group: 8
+ppo_epochs: 1
+adv_estimator: "grpo"
+
+use_pg_clip_range: true
+pg_clip_low: 0.20
+pg_clip_high: 0.28
+dual_clip_loss: true
+
+value_clip: 0.5
+reward_clip: 5
+advantage_clip: 2.0
+
+norm_mean_type: ~
+norm_std_type: ~
+
+max_len_mask: true
+difficulty_mask: true
+# Slightly relaxed thresholds (vs stage8's 0.1/0.95) to keep more samples active
+# late in training. Will be replaced by adaptive scheduler in stage10.
+difficulty_low_threshold: 0.05
+difficulty_high_threshold: 0.97
+error_max_len_clip: false
+difficulty_loss_weight: false
+length_loss_weight: false
+
+# === Dr.GRPO loss fixes ===
+whiten_advantages: false                    # Dr.GRPO: don't divide by std
+loss_agg_mode: "seq-mean-token-sum-norm"    # Dr.GRPO: normalize by max_len, not actual
+
+# === KL + entropy regularization ===
+add_token_level_kl: false                   # don't add KL to token rewards (we use loss instead)
+use_kl_loss: true                           # KL as separate loss term
+kl_loss_coef: 0.001                         # very low (stage3 used 0.01 which was too heavy)
+entropy_loss_coef: 0.01                     # small entropy bonus to keep exploration
+
+use_additional_prompts: true
+max_running_requests: 128
+is_num_return_sequences_expand: false
+
+# === SFT cold-start init ===
+# Path on TRAIN host: SFT-trained 14B from stage 9a
+pretrain: /mnt/output/qwen3-14B-tom-sft-stage9
+reward_pretrain: Qwen/Qwen3-14B
+
+validation:
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tombench_eval_subset500.jsonl
+  generating_args:
+    # Long CoT: 64 -> 512 to capture full reasoning at val time
+    max_new_tokens: 512
+    top_p: 1.0
+    top_k: -1
+    num_beams: 1
+    temperature: 0.0
+    num_return_sequences: 1
+
+actor_train:
+  model_args:
+    disable_gradient_checkpointing: false
+    dtype: bf16
+    model_type: ~
+  training_args:
+    # Lower lr for RL on top of SFT (5e-7 vs typical 1e-6) to avoid forgetting
+    # the structured reasoning learned during SFT.
+    learning_rate: 5.0e-7
+    weight_decay: 0
+    per_device_train_batch_size: 1
+    gradient_accumulation_steps: 32
+    warmup_steps: 20
+    num_train_epochs: 50
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tom_train.jsonl
+    domain_interleave_probs:
+      tom_mcq: 1.0
+    dataset_dir: /mnt/data
+    messages: messages
+    interleave_probs: "1.0"
+    preprocessing_num_workers: 16
+  strategy_args:
+    strategy_name: megatron_train
+    strategy_config:
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+      use_distributed_optimizer: true
+      distrib_optim_fully_reshardable_mem_efficient: true
+      recompute_granularity: full
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+actor_infer:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+  generating_args:
+    max_new_tokens: ${response_length}
+    top_p: 0.95
+    top_k: 50
+    num_beams: 1
+    temperature: 0.99
+    num_return_sequences: ${num_return_sequences_in_group}
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: vllm
+    strategy_config:
+      # gpu_memory_utilization 0.45 for 14B; max_model_len 4096 to fit
+      # prompt 1024 + response 1024 + headroom for KV cache
+      gpu_memory_utilization: 0.45
+      block_size: 16
+      max_model_len: 4096
+      tensor_parallel_size: 2
+  device_mapping: list(range(0,8))
+  infer_batch_size: 1
+
+reference:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+    model_type: ~
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: megatron_infer
+    strategy_config:
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+rewards:
+  tom_mcq:
+    worker_cls: roll.pipeline.rlvr.rewards.tom_mcq_reward_worker.TomMcqRewardWorker
+    tag_included: [tom_mcq]
+    model_args:
+      model_name_or_path: ${reward_pretrain}
+    data_args:
+      template: qwen3
+    world_size: 8
+    infer_batch_size: 16
+    # Long CoT reward: 100-600 token range encouraged. Old 8-256 prevented chains.
+    l_min: 100
+    l_max: 600
+    k: 50
+    # Stage 9 reward shaping: weighted sum (not multiplication)
+    aggregation: weighted_sum
+    r_fmt_weight: 0.05
+    r_out_weight: 0.85
+    r_len_weight: 0.10
