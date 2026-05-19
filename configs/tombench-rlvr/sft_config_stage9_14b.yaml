@@ -74,6 +74,6 @@ sft_train:
       use_distributed_optimizer: true
       distrib_optim_fully_reshardable_mem_efficient: true
       recompute_granularity: full
-  use_sequence_packing: true
+  use_sequence_packing: false
   device_mapping: list(range(0,8))
   infer_batch_size: 2
