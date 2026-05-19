@@ -107,6 +107,12 @@ train-stage1-1x8-14b: ## Phase 9 (1×8 H800): Qwen3-14B test (TP=2)
 	  --env-file configs/deploy.env \
 	  run --rm --build -e STAGE=stage1_1x8_14b train"
 
+train-stage10-1x8-14b: ## Phase 18 (1×8 H800): Qwen3-14B Stage 10 (evidence-based: weighted_sum reward + entropy 0.005 + s8 baseline)
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=stage10_1x8_14b train"
+
 sft-stage9-14b: ## Phase 16 (1×8 H800): Qwen3-14B SFT cold-start on GPT-5.5 reasoning traces
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \
