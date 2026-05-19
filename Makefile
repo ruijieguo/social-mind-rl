@@ -113,11 +113,23 @@ sft-stage9-14b: ## Phase 16 (1×8 H800): Qwen3-14B SFT cold-start on GPT-5.5 rea
 	  --env-file configs/deploy.env \
 	  run --rm --build -e STAGE=sft_stage9_14b train"
 
-train-stage9-1x8-14b: ## Phase 17 (1×8 H800): Qwen3-14B Stage 9 GRPO on SFT cold-start (Dr.GRPO + KL + entropy + long CoT)
+sft-stage9-8b: ## Phase 16b (1×8 H800): Qwen3-8B SFT cold-start
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=sft_stage9_8b train"
+
+train-stage9-1x8-14b: ## Phase 17 (1×8 H800): Qwen3-14B Stage 9 GRPO on SFT cold-start
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
 	  docker compose -f docker/train/docker-compose.yml \
 	  --env-file configs/deploy.env \
 	  run --rm --build -e STAGE=stage9_1x8_14b train"
+
+train-stage9-1x8: ## Phase 17b (1×8 H800): Qwen3-8B Stage 9 GRPO on SFT cold-start
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=stage9_1x8 train"
 
 train-stage8-1x8: ## Phase 15 (1×8 H800): Qwen3-8B stage8 (Phase C style-matched, 9259 records)
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
