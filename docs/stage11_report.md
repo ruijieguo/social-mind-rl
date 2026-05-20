@@ -112,38 +112,46 @@ By task (final): 180 per task × 7 tasks = 1260
 Leakage: 0/1260 (jaccard < 0.85 vs eval set).
 Cost: ~$50 USD.
 
-## Track D: Continue stage 8 training 🟡 RUNNING
+## Track D: Continue stage 8 training ✅ DONE
 
 Config: identical to stage 8, only `pretrain` changed to stage 8 HF
 - exp_name: `qwen3-14B-tombench-rlvr-stage11d-1x8`
-- max_steps: 350
+- max_steps: 350, save_steps: 350 (final only)
 - Same data (9259), reward, GRPO config
 
 **Step 0 baseline**: val_correct/all = **0.7080** (= stage 8 step 200, init confirmed)
 
-| step | val | Δ from step 0 |
-|---|---|---|
-| 0 (init) | 0.7080 | — |
-| 50 | 0.7200 | +1.20pp |
-| 100 | 0.7280 | +2.00pp |
-| 150 | 0.7360 | +2.80pp |
-| **200** | **0.7500** | **+4.20pp** ⭐ accelerating |
-| 250 | TBD | ~0.76 (predicted) |
-| 350 | TBD | ~0.78+ (predicted) |
+| step | val | Δ from step 0 | note |
+|---|---|---|---|
+| 0 (init) | 0.7080 | — | warmup |
+| 50 | 0.7200 | +1.20pp | smooth |
+| 100 | 0.7280 | +2.00pp | smooth |
+| 150 | 0.7360 | +2.80pp | smooth |
+| 200 | 0.7500 | +4.20pp | ⚠ transient (used=0, no gradient) |
+| 250 | 0.7120 | +0.40pp | regression from peak |
+| 300 | 0.7320 | +2.40pp | back on smooth trend |
+| **349 (final)** | **TBD** | — | ckpt saved, awaiting eval |
 
-**Big finding**: stage 8 was NOT at plateau. Continue training (Track D) breaks through 0.706 → 0.750 in 200 more steps with NO new data. Gains accelerated: +1.20pp / +0.80pp / +0.80pp / **+1.40pp** per 50-step window.
+**Findings**:
+1. **Stage 8 was NOT at plateau** — continue training gains roughly +0.6pp per 50 steps on the smooth trajectory
+2. **Step 200 peak was transient** (used=0 means no gradient applied that step, val was an instantaneous snapshot)
+3. **Real trend after smoothing**: 0.7080 → ~0.73 over 300 steps, ~+2.5pp
+4. Track D alone won't reach Track A's del_tom (0.7810). del_tom is still the stronger eval-time win.
 
-If trajectory holds, Track D alone may end at ~0.78, matching Track A's del_tom protocol. Stacking D + del_tom → ~0.80+.
+**Output**: `/data_nvme/grj-projects/tom-output/qwen3-14B-tombench-rlvr-stage11d-1x8/20260520-111250/checkpoint-349/`
 
-**Healthy signs**:
-- ✅ Real loss values (mostly negative — pushing on rare partial groups)
-- ✅ rollout score steady around 0.93-0.97 (model not collapsing)
-- ✅ samples_used 6-42 range (matching stage 8's late-step pattern)
-- ✅ approxkl < 0.001 (stable policy, no divergence)
+## Track E: Stage 12 整合训练 🟡 RUNNING
 
-**Concern**: only ~10-30/256 samples produce gradient (90% rollouts already correct on training data). Same plateau evidence we saw in stage 8 logs. This continue-training run is the **control experiment** that tells us how much extra training alone can add.
+**Launched**: 2026-05-20 17:49:05 UTC (auto-launcher fired on D completion)
+Container: `train-train-run-c19189b65ec6`, log: `logs/train_stage12_1x8_14b_20260521_014905.log`
 
-First val at step 50 (~17 min in).
+Config: identical to stage 8 + Track D, only data and exp_name change
+- exp_name: `qwen3-14B-tombench-rlvr-stage12-1x8`
+- pretrain: stage 8 HF (NOT Track D's ckpt — clean comparison baseline)
+- data: `tom_train_stage12.jsonl` (12519 records)
+- max_steps: 350
+
+**Status**: workers spawning, VLLM loading, training will begin in ~5 min.
 
 ## Track E: Stage 12 整合训练 (config ready, queued)
 
