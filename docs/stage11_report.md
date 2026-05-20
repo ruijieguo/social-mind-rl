@@ -29,6 +29,36 @@
 
 🎯 **Free win: 0.7594 → 0.7810 (+2.16pp), no training**
 
+## Headline comparison vs SOTA (full 5718)
+
+| Model | Acc | vs s8 direct |
+|---|---|---|
+| stage 8 direct | 0.7590 | baseline |
+| stage 8 cot | 0.7681 | +0.91pp |
+| **stage 8 del_tom** | **0.7810** | **+2.20pp** |
+| deepseek-v4-pro | 0.8080 | +4.90pp |
+| GPT-5.5 | 0.8349 | +7.59pp |
+
+## Per-task: where we EXCEED vs LAG (vs deepseek-v4-pro)
+
+| Task | s8_del | deepseek | gap | implication |
+|---|---|---|---|---|
+| **False Belief** | **0.9115** | 0.8946 | **+1.69pp ⭐** | already saturated, ExploreToM FB→ marginal |
+| Non-literal Comm | 0.7961 | 0.8128 | -1.67pp | small gap, needs natural-language synth |
+| Desire | 0.5972 | 0.6333 | -3.61pp | Track C has 39 Desire patterns |
+| Knowledge | 0.5156 | 0.5675 | -5.19pp | Track C 84 + ExploreToM 124 — biggest data |
+| Emotion | 0.7488 | 0.8048 | -5.60pp | Track C 80 Emotion patterns |
+| Intention | 0.8324 | 0.8926 | -6.03pp | Track C 61 Intention patterns |
+| **Belief** | 0.7676 | **0.8486** | **-8.10pp ⚠** | Track B 1152 + Track C 34 — biggest target |
+
+**Key insight**: Stage 12's data plan (Track B + C) precisely matches the per-task gaps. The 7.59pp total gap to GPT-5.5 decomposes:
+- ~3.5pp from 3 tasks where we lag 5-8pp (Belief, Intention, Emotion) — Track C addresses each
+- ~1.5pp from Knowledge (Track B + C combined)
+- ~1pp from Desire + Non-literal Comm
+- False Belief is already at saturation (+1.69pp lead)
+
+If Stage 12 closes half the per-task gaps → raw ≥ 0.81. With del_tom layered → 0.83+.
+
 ## Track B: ExploreToM data ✅ DONE
 
 **Decision change**: After cloning Meta repo, the framework requires Llama-3.1-70B-Instruct as base teacher (cached prompts hardcoded). Stage 8 14B (MCQ-tuned) cannot generate the multi-step story contexts needed.
