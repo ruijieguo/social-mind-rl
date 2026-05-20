@@ -46,6 +46,49 @@ def task_label_from_props(rec):
     return "Belief"
 
 
+def detect_question_type(question, expected_answer):
+    """Classify question into yes_no, knowledge, or container.
+
+    Returns (qtype, true_distractor_opt_strings) where the distractor strings
+    are the *opposite* answer for yes/no and knowledge, and None for container
+    (which uses smart object extraction).
+    """
+    q_lower = question.lower()
+    ans_lower = expected_answer.lower().strip()
+
+    if 'yes or no' in q_lower or ans_lower in ('yes', 'no'):
+        # Yes/no question
+        return ('yes_no', None)
+    if ('knows about' in q_lower or 'know about' in q_lower
+            or 'know it' in q_lower
+            or 'know about it' in ans_lower
+            or 'know it' in ans_lower):
+        # Knowledge question
+        return ('knowledge', None)
+    # Default: container question
+    return ('container', None)
+
+
+def yes_no_distractors(gold):
+    """For yes/no questions, the distractor is the opposite plus 2 plausible
+    'I don't know' style options."""
+    if gold.lower().strip() == 'yes':
+        opp = 'no'
+    else:
+        opp = 'yes'
+    return [opp, "I don't know", "It's unclear from the story"]
+
+
+def knowledge_distractors(gold):
+    """For knowledge questions, distractor is the negation plus 2 hedges."""
+    g = gold.lower().strip()
+    if 'does not' in g or "doesn't" in g or 'not know' in g:
+        opp = 'knows about it'
+    else:
+        opp = 'does not know about it'
+    return [opp, "I don't know", "It depends on context"]
+
+
 _CONTAINER_KEYWORDS = (
     "bag|box|drawer|briefcase|crate|cabinet|chest|cooler|jar|envelope|wallet|"
     "pocket|pouch|locker|safe|container|bin|tray|case|holder|bottle|tin|barrel|"
@@ -58,22 +101,85 @@ _CONTAINER_KEYWORDS = (
 
 _RE_PHRASES = re.compile(rf"\b(?:[a-z]+ ){{0,3}}(?:{_CONTAINER_KEYWORDS})\b")
 
+# Filler words that signal an extracted phrase is not a clean noun-phrase
+_BAD_PREFIXES = (
+    "and ", "or ", "the ", "a ", "an ", "then ", "first ", "next ",
+    "into ", "onto ", "after ", "before ", "behind ", "beside ",
+    "near ", "from ", "with ", "without ", "as if ",
+)
 
-def extract_candidates(story, gold, num_candidates=3):
-    """Extract plausible distractors from the story text."""
+
+def _is_clean_phrase(p):
+    """Reject phrases that start with conjunctions, adverbs, or prepositions
+    that indicate the regex captured mid-sentence text rather than a real
+    noun-phrase."""
+    p_low = p.lower().strip()
+    for prefix in _BAD_PREFIXES:
+        if p_low.startswith(prefix) and prefix != "the " and prefix != "a " and prefix != "an ":
+            # Articles are fine; conjunctions/adverbs/prepositions are not
+            return False
+    if p_low in _BAD_PREFIXES:
+        return False
+    # Must contain at least one of the container keywords as a whole token
+    tokens = set(p_low.split())
+    if not any(any(kw in t for kw in _CONTAINER_KEYWORDS.split('|')) for t in tokens):
+        return False
+    return True
+
+
+def _normalize_for_match(s):
+    """Strip articles and whitespace to detect near-duplicates."""
+    s = s.lower().strip()
+    for article in ['the ', 'a ', 'an ']:
+        if s.startswith(article):
+            s = s[len(article):]
+    return s.strip()
+
+
+def container_distractors(story, gold, num_candidates=3):
+    """Extract plausible distractors from the story text.
+
+    Filters out distractors that are near-duplicates of the gold answer
+    (differing only by leading article, trailing punctuation, or substring).
+    """
+    gold_norm = _normalize_for_match(gold)
     phrases = _RE_PHRASES.findall(story.lower())
-    candidates = list({p.strip() for p in phrases if p and p.strip().lower() != gold.lower()})
+
+    candidates = []
+    seen_norm = {gold_norm}
+    for p in phrases:
+        p = p.strip()
+        if not p:
+            continue
+        if not _is_clean_phrase(p):
+            continue
+        p_norm = _normalize_for_match(p)
+        # Reject if it normalizes to the gold, contains gold, or gold contains it
+        if p_norm in seen_norm:
+            continue
+        if p_norm in gold_norm or gold_norm in p_norm:
+            continue
+        seen_norm.add(p_norm)
+        candidates.append(p)
+
     if len(candidates) < num_candidates:
         fallbacks = [
             "kitchen counter", "wooden cabinet", "leather satchel",
             "metal drawer", "garden shed", "office desk",
             "storage closet", "back room", "hallway closet",
+            "filing cabinet", "wall locker", "ceramic vase", "plastic crate",
         ]
         for f in fallbacks:
-            if f.lower() != gold.lower() and f not in candidates:
-                candidates.append(f)
+            f_norm = _normalize_for_match(f)
+            if f_norm in seen_norm:
+                continue
+            if f_norm in gold_norm or gold_norm in f_norm:
+                continue
+            seen_norm.add(f_norm)
+            candidates.append(f)
             if len(candidates) >= num_candidates:
                 break
+
     random.shuffle(candidates)
     return candidates[:num_candidates]
 
@@ -88,11 +194,18 @@ def build_record(idx, rec, rng):
     if len(story) > 1500 or len(story) < 80:
         return None
 
-    distractors = extract_candidates(story, gold_text, 3)
+    qtype, _ = detect_question_type(question, gold_text)
+    if qtype == 'yes_no':
+        distractors = yes_no_distractors(gold_text)
+    elif qtype == 'knowledge':
+        distractors = knowledge_distractors(gold_text)
+    else:
+        distractors = container_distractors(story, gold_text, 3)
+
     if len(distractors) < 3:
         return None
 
-    options = distractors + [gold_text]
+    options = list(distractors[:3]) + [gold_text]
     rng.shuffle(options)
     gold_letter = "ABCD"[options.index(gold_text)]
 
@@ -112,6 +225,7 @@ def build_record(idx, rec, rng):
         "opt_d": options[3],
         "gold": gold_letter,
         "_meta": {
+            "qtype": qtype,
             "nth_order": rec.get("qprop=nth_order"),
             "is_fb_1st": rec.get("sprop=is_false_belief_story_1st"),
             "is_fb_2nd": rec.get("sprop=is_false_belief_story_1st_and_2nd"),
