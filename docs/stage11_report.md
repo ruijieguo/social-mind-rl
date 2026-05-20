@@ -72,26 +72,60 @@ Generating ~180 same-pattern training questions per task = ~1260 records total.
 
 Cost: ~$50 (1260 × $0.04)
 
-## Track D: Continue stage 8 training
+## Track D: Continue stage 8 training 🟡 RUNNING
 
 Config: identical to stage 8, only `pretrain` changed to stage 8 HF
 - exp_name: `qwen3-14B-tombench-rlvr-stage11d-1x8`
 - max_steps: 350
 - Same data (9259), reward, GRPO config
 
-**Status**: queued, launches after Track A vLLM freed (in scripts/launch_stage11d_train.sh)
+**Step 0 baseline**: val_correct/all = **0.7080** (= stage 8 step 200, init confirmed)
 
-## Track E: Final integration (stage 12)
+| step | val | rollout_score | loss | used | observation |
+|---|---|---|---|---|---|
+| 0 | 0.7080 | 0.961 | 0.0 | 6/256 | warmup, lr=1e-7 |
+| 1 | — | 0.973 | 0.041 | 11 | gradient flowing |
+| 5 | — | 0.988 | -0.136 | 22 | lr 5e-7 |
+| 10 | — | 0.916 | -0.105 | 13 | lr peak 1e-6 |
+| 15 | — | 0.920 | -0.023 | 42 | most usable samples so far |
+| 20 | — | 0.934 | 0.381 | — | decay starts |
 
-Will train new 14B (init from stage 8) on:
-- 9259 stage 8 base
-- + 1500 ExploreToM (Track B)
-- + 1260 HOT synth (Track C)
-- = ~12000 records
+**Healthy signs**:
+- ✅ Real loss values (mostly negative — pushing on rare partial groups)
+- ✅ rollout score steady around 0.93-0.97 (model not collapsing)
+- ✅ samples_used 6-42 range (matching stage 8's late-step pattern)
+- ✅ approxkl < 0.001 (stable policy, no divergence)
 
-Same recipe as stage 8 (350 steps GRPO).
+**Concern**: only ~10-30/256 samples produce gradient (90% rollouts already correct on training data). Same plateau evidence we saw in stage 8 logs. This continue-training run is the **control experiment** that tells us how much extra training alone can add.
 
-Expected: 14B raw 0.78-0.82 (depending on B/C data quality)
+First val at step 50 (~17 min in).
+
+## Track E: Stage 12 整合训练 (config ready, queued)
+
+Will be triggered after Track D completes (frees 8 GPUs) AND Track C synth ≥ 1000 records.
+
+Config: `configs/tombench-rlvr/rlvr_config_stage12_1x8_14b.yaml`
+- Init: stage 8 HF
+- Data: `tom_train_stage12.jsonl` (preview: 11750 records, 0 leakage)
+- Recipe: identical to stage 8 (350 steps)
+
+Pre-merged preview already verified clean (hash-based dedup, 0 leakage):
+```
+Total records: 11750 (base 9259 + new 2491)
+Sources: simpletom 1000, synth 2911, synth_phase1 977, synth_zh 971,
+         synth_gpt55 1400, synth_gpt55_phase_c 1200,
+         synth_gpt55_phase_b_zh 800,
+         exploretom_v2 2000, synth_gpt55_phase_d_hot 491
+Tasks: Other 1971, Emotion 610, Unexpected Outcome 331, Intention 875,
+       False Belief 2353, Desire 758, Knowledge 1667, Persuasion 329,
+       Strange 294, Non-literal 730, Belief 1832
+Languages: en 7995, zh 3755
+```
+
+When Track C completes, re-run merge → final stage 12 dataset.
+
+Launch: `bash scripts/launch_stage12_train.sh`
+Eval: `bash scripts/eval_stage_post_train.sh stage12_1x8_14b`
 
 ## Decision tree
 
