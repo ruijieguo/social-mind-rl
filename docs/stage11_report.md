@@ -125,14 +125,15 @@ Config: identical to stage 8, only `pretrain` changed to stage 8 HF
 |---|---|---|
 | 0 (init) | 0.7080 | — |
 | 50 | 0.7200 | +1.20pp |
-| **100** | **0.7280** | **+2.00pp** ⭐ |
-| 150 | TBD | |
-| 200 | TBD | |
-| 350 | TBD | |
+| 100 | 0.7280 | +2.00pp |
+| 150 | 0.7360 | +2.80pp |
+| **200** | **0.7500** | **+4.20pp** ⭐ accelerating |
+| 250 | TBD | ~0.76 (predicted) |
+| 350 | TBD | ~0.78+ (predicted) |
 
-**Big finding**: stage 8 was NOT at plateau. Continue training breaks through 0.706 → 0.728 in just 100 more steps. This was the critical control experiment.
+**Big finding**: stage 8 was NOT at plateau. Continue training (Track D) breaks through 0.706 → 0.750 in 200 more steps with NO new data. Gains accelerated: +1.20pp / +0.80pp / +0.80pp / **+1.40pp** per 50-step window.
 
-If trajectory holds (step 200: ~0.736), Track D alone matches Track A's del_tom gain (+2.16pp) — and stack: D + del_tom could be 0.78 + voting → ~0.80.
+If trajectory holds, Track D alone may end at ~0.78, matching Track A's del_tom protocol. Stacking D + del_tom → ~0.80+.
 
 **Healthy signs**:
 - ✅ Real loss values (mostly negative — pushing on rare partial groups)
