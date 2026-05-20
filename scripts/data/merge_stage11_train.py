@@ -78,7 +78,8 @@ def main():
     for r in base:
         msgs = r.get("messages", [])
         if msgs and len(msgs) >= 2:
-            seen_text.add(msgs[1]["content"][:100])
+            # Hash the full user content for accurate dedup
+            seen_text.add(hash(msgs[1]["content"]))
 
     new_recs = []
     for path in args.add:
@@ -94,7 +95,7 @@ def main():
                 continue
             seen_qids.add(qid)
             converted = to_messages(r)
-            text_key = converted["messages"][1]["content"][:100]
+            text_key = hash(converted["messages"][1]["content"])
             if text_key in seen_text:
                 continue
             seen_text.add(text_key)
