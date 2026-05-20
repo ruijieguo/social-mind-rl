@@ -85,7 +85,7 @@ Files:
 
 These can be used for difficulty-aware curriculum in stage 12.
 
-## Track C: HOT-targeted GPT-5.5 synth
+## Track C: HOT-targeted GPT-5.5 synth ✅ DONE
 
 Analyzed 492 HOT records (stage 8 wrong but gpt-5.5 + deepseek both right):
 - False Belief: 102
@@ -96,11 +96,21 @@ Analyzed 492 HOT records (stage 8 wrong but gpt-5.5 + deepseek both right):
 - Desire: 39
 - Belief: 34
 
-Generating ~180 same-pattern training questions per task = ~1260 records total.
+Generated **1260 records** (180 per task), 100% success rate, ~5h wall time.
 
-**Status**: running on DEV, ~4.4 records/min, ETA ~5h
+**Output**: `data/tom/raw/synth_gpt55_phase_d_hot.jsonl` — 1260 records.
 
-Cost: ~$50 (1260 × $0.04)
+By task (final): 180 per task × 7 tasks = 1260
+- Belief: 180 (34 patterns × ~5x scenarios)
+- Desire: 180
+- Emotion: 180
+- False Belief: 180
+- Intention: 180
+- Knowledge: 180
+- Non-literal Comm: 180
+
+Leakage: 0/1260 (jaccard < 0.85 vs eval set).
+Cost: ~$50 USD.
 
 ## Track D: Continue stage 8 training 🟡 RUNNING
 
