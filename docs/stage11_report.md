@@ -111,14 +111,18 @@ Config: identical to stage 8, only `pretrain` changed to stage 8 HF
 
 **Step 0 baseline**: val_correct/all = **0.7080** (= stage 8 step 200, init confirmed)
 
-| step | val | rollout_score | loss | used | observation |
-|---|---|---|---|---|---|
-| 0 | 0.7080 | 0.961 | 0.0 | 6/256 | warmup, lr=1e-7 |
-| 1 | — | 0.973 | 0.041 | 11 | gradient flowing |
-| 5 | — | 0.988 | -0.136 | 22 | lr 5e-7 |
-| 10 | — | 0.916 | -0.105 | 13 | lr peak 1e-6 |
-| 15 | — | 0.920 | -0.023 | 42 | most usable samples so far |
-| 20 | — | 0.934 | 0.381 | — | decay starts |
+| step | val | Δ from step 0 |
+|---|---|---|
+| 0 (init) | 0.7080 | — |
+| 50 | 0.7200 | +1.20pp |
+| **100** | **0.7280** | **+2.00pp** ⭐ |
+| 150 | TBD | |
+| 200 | TBD | |
+| 350 | TBD | |
+
+**Big finding**: stage 8 was NOT at plateau. Continue training breaks through 0.706 → 0.728 in just 100 more steps. This was the critical control experiment.
+
+If trajectory holds (step 200: ~0.736), Track D alone matches Track A's del_tom gain (+2.16pp) — and stack: D + del_tom could be 0.78 + voting → ~0.80.
 
 **Healthy signs**:
 - ✅ Real loss values (mostly negative — pushing on rare partial groups)
