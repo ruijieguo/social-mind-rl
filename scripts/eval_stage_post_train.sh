@@ -20,7 +20,7 @@ echo "Stage: $STAGE"
 echo "Exp:   $EXP_NAME"
 echo "HF:    $HF_DIR"
 
-# Step 1: convert Megatron -> HF on TRAIN
+# Step 1: convert Megatron -> HF on TRAIN using mcore_adapter inside the train container
 echo
 echo "=== Convert ckpt to HF format on TRAIN ==="
 ssh -i "$TRAIN_SSH_KEY" "$TRAIN_HOST" "
@@ -28,10 +28,12 @@ ssh -i "$TRAIN_SSH_KEY" "$TRAIN_HOST" "
   docker compose -f docker/train/docker-compose.yml \
     --env-file configs/deploy.env \
     run --rm --build \
-    -e CONVERT_FROM=$EXP_NAME \
-    -e CONVERT_TO=$HF_DIR \
-    --entrypoint /workspace/scripts/convert_to_hf.sh \
-    train
+    --entrypoint python \
+    train \
+    scripts/deploy/convert_megatron_to_hf.py \
+      --src /mnt/output/${EXP_NAME}/final \
+      --dst /mnt/output/${HF_DIR} \
+      --base-model Qwen/Qwen3-14B
 "
 
 # Step 2: launch vLLM serve
