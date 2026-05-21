@@ -49,6 +49,10 @@ case "${STAGE}" in
     # Stage 12: stage 8 base + Track B (ExploreToM v2) + Track C (HOT synth)
     DATA_FILE="/mnt/data/tom_train_stage12.jsonl"
     ;;
+  stage13_1x8_14b)
+    # Stage 13: continue from Stage 12 ckpt, same data (testing if Stage 12 plateaued)
+    DATA_FILE="/mnt/data/tom_train_stage12.jsonl"
+    ;;
   sft_stage9_14b|sft_stage9_8b)
     # SFT stages use the GPT-5.5 reasoning traces dataset
     DATA_FILE="/mnt/data/tom_train_sft.jsonl"
