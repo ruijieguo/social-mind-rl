@@ -1,0 +1,36 @@
+# Production frozen v3.0 — Stage 12 / Stage 11 v2 series
+# Generated: 2026-05-21T03:19:17Z
+
+## Configs
+e28741b6cae641d00841b727f55c9b1e788415fe1066b6f7e483c810897a2c95  configs/rlvr_config_14b_stage11d_track_d_FROZEN.yaml
+145963681b072c3577525310d2b166a40cfaeded1a3cece08ba8bbe2d38bbc54  configs/rlvr_config_14b_stage12_FROZEN.yaml
+
+## Training data
+470b473c6b7a5708b44903d1ddfdd88e837f12e4e8d567afeaf6d4169626f640  data/tom_train_14b_stage12.jsonl
+
+## Synthesis source data (Track B + Track C raw)
+024d77a8429eb04dd159fc43f4191beff7fb3e4c539c2742ec45e202ebc2e058  data/raw/exploretom_v2_track_b.jsonl
+5468590af549b04bab29469812e71c26c617be6d35315ebd9b2987bc1107d16f  data/raw/synth_gpt55_phase_d_hot_track_c.jsonl
+
+## Scripts
+e88bda3f8a82de24154f882bc9d82ccb1869098786c275f1cb47e3765e8c5e9a  scripts/convert_exploretom_v2.py
+3b9edb5b59a3429b0f2f21825d7f46402813908145fe01a7a3f813a52f67502a  scripts/extractors.py
+ae107b8ab34001a7d652fa09cbd8cffd858a2159f070ecbec6607250631cbec3  scripts/merge_stage11_train.py
+5b25b577791b3c1ba95e667614b17cfc949f53cf37d380a51d601bff235c673a  scripts/run_tombench.py
+adf1d2075e1bc77dce06e4f7c60bdfb1d49893d78a58460395df6c8d72401b9a  scripts/synth_gpt55_phase_d_hot.py
+9c1867aec90b0c2b18d60a676d4efc69198c6db4db0bc2a09e1598385ae230a3  scripts/launch_stage11d_train.sh
+04845a9c115859372087e68f674154fcbdfa8d8d78f468342bc34c73dc0a0ff5  scripts/launch_stage12_train.sh
+
+## Eval results
+ed1c49e0fd61bfc335ac43ec7679e9257ba11489e56ab3f2735d0253a4a38a5f  eval/14b_stage12_full5718.json
+
+## Logs (gzipped)
+311b3b3b598d4817d7f923ca76e9022b86fcf00ec096bbae4af87fe578ae931e  logs/eval_stage12_14b.log.gz
+e4fc3431e0fbb6d79aa20689c774930c4bab3abd9df932b3eaa33812e2940606  logs/train_stage11d_track_d_14b.log.gz
+ccd48be995669bc965aa7019954792b882f8716fd1ed65cb39b34352c74d595a  logs/train_stage12_14b.log.gz
+
+## Docs
+c2607877c24a1e971431efcfcdd5c9b40883c870272d0eb1d093c3af9b215ec1  docs/stage11_v2_final_report_zh.md
+
+## Top-level
+d8a71c6a52023b8d5a4b07ca6487a5b3fce7c94f4890c82083cf0b20680cb175  README.md

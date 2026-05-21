@@ -1,18 +1,24 @@
 # Production Frozen — Reproducibility Snapshot
 
-> **Status**: Best-of-project models pinned. Do NOT modify files in this directory.
-> **Created**: 2026-05-20 (after Stage 10 abort confirmed Stage 7/8 are project-best)
+> **Status**: 项目最优模型已固化。本目录文件请勿修改。
+> **当前版本**: **v3.0**（2026-05-21，Stage 11 v2 系列完成，Stage 12 + del_tom = **0.7823** 创项目记录）
+> **历史版本**:
+> - **v1.0** (2026-05-20)：Stage 7/8 最优快照
+> - **v3.0** (2026-05-21)：新增 Stage 12 增量层，详见 [`v3.0/README.md`](v3.0/README.md)
 
-## Headline results (frozen)
+## 头条结果（按版本）
 
-| Model | Full 5718 direct | Clean 4551 direct | Subset500 best | HF model size |
+| 模型 / 版本 | full 5718 best | 协议 | HF size | 快照位置 |
 |---|---|---|---|---|
-| **qwen3-8b-tom-stage7** | **0.7419** | 0.8321 | cot 0.7460 | 16 GB |
-| **qwen3-14b-tom-stage8** | **0.7594** | 0.8449 | del_tom **0.7920** | 28 GB |
-| deepseek-v4-pro (reference) | 0.8080 | 0.9013 | direct 0.7880 | API |
-| GPT-5.5 (reference) | 0.8349 | 0.9343 | — | API |
+| **qwen3-14b-tom-stage12** (v3.0) | **0.7823** | del_tom | 28 GB | `v3.0/` |
+| qwen3-14b-tom-stage12 (v3.0) | 0.7690 | cot | 28 GB | `v3.0/` |
+| qwen3-14b-tom-stage8 (v1.0) | 0.7810 | del_tom | 28 GB | `eval/14b_stage8_*` + scripts |
+| qwen3-14b-tom-stage8 (v1.0) | 0.7594 | direct | 28 GB | top-level |
+| qwen3-8b-tom-stage7 (v1.0) | 0.7419 | direct | 16 GB | top-level |
+| deepseek-v4-pro (参考) | 0.8080 | — | API | — |
+| GPT-5.5 (参考) | 0.8349 | — | API | — |
 
-**Stage 8 14B subset500 del_tom 0.7920 反超 deepseek-v4-pro direct 0.7880 (+0.4pp)** — 项目最大成就。
+**项目最高**：Stage 12 + del_tom = 0.7823，距 GPT-5.5 仅 5.26pp（之前 7.55pp），距 deepseek-v4-pro 仅 2.57pp。
 
 ## Directory contents
 
