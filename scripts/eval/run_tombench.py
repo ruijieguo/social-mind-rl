@@ -101,6 +101,7 @@ def evaluate_one(
     protocol: str,
     cache_dir: Path,
     model_id_for_cache: str,
+    del_tom_n: int = 8,
 ) -> dict:
     qid = record["question_id"]
     language = record["language"]
@@ -133,7 +134,7 @@ def evaluate_one(
             language=language,
         )
         sample_params = dict(temperature=0.7, top_p=0.95, max_tokens=1024)
-        n_samples = 8
+        n_samples = del_tom_n
     else:
         raise ValueError(f"unknown protocol: {protocol}")
 
@@ -221,6 +222,8 @@ def main():
     p.add_argument("--concurrency", type=int, default=8)
     p.add_argument("--limit", type=int, default=None,
                    help="evaluate only first N questions (debug)")
+    p.add_argument("--del-tom-n", type=int, default=8,
+                   help="number of samples for del_tom voting (default 8)")
     args = p.parse_args()
 
     if args.preset == "baseline-all":
@@ -253,7 +256,8 @@ def _run_single(args, client: ChatClient, cache_id: str):
             futures = [
                 ex.submit(evaluate_one,
                           client=client, record=r, protocol=protocol,
-                          cache_dir=cache_dir, model_id_for_cache=cache_id)
+                          cache_dir=cache_dir, model_id_for_cache=cache_id,
+                          del_tom_n=args.del_tom_n)
                 for r in records
             ]
             for f in tqdm(as_completed(futures), total=len(futures), desc=protocol):

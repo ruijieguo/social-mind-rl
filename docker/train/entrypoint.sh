@@ -53,6 +53,19 @@ case "${STAGE}" in
     # Stage 13: continue from Stage 12 ckpt, same data (testing if Stage 12 plateaued)
     DATA_FILE="/mnt/data/tom_train_stage12.jsonl"
     ;;
+  stage14_1x8_14b)
+    # Stage 14: task-weighted resample of Stage 12 data (Knowledge ×1.92, FB ×0.72)
+    DATA_FILE="/mnt/data/tom_train_stage14_weighted.jsonl"
+    ;;
+  stage14b_1x8_8b)
+    # Stage 14b 8B: same task-weighted data on Qwen3-8B from Stage 7 ckpt
+    DATA_FILE="/mnt/data/tom_train_stage14b_weighted.jsonl"
+    ;;
+  stage15_1x8_8b)
+    # Stage 15 8B: filter out reward>=0.95 records, re-weight by 8B Stage 7's
+    # own per-task del_tom acc (Knowledge×2.0, FB×0.77). 7482 records.
+    DATA_FILE="/mnt/data/tom_train_stage15_8b_filtered_weighted.jsonl"
+    ;;
   sft_stage9_14b|sft_stage9_8b)
     # SFT stages use the GPT-5.5 reasoning traces dataset
     DATA_FILE="/mnt/data/tom_train_sft.jsonl"

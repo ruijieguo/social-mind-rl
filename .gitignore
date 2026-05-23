@@ -70,3 +70,8 @@ output/manifests/
 docker_volumes/
 .claude/
 framework/ExploreToM
+
+# API keys / secrets
+.env
+*.env
+!**/configs/deploy.env
