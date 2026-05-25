@@ -40,8 +40,19 @@ def test_extract_no_boxed():
 
 
 def test_extract_invalid_letter_inside_box():
-    letter, fmt_ok = extract_boxed_letter("\\boxed{Z}")
+    # Lowercase or non-letter inside boxed must fail format check.
+    letter, fmt_ok = extract_boxed_letter("\\boxed{z}")
     assert fmt_ok is False
+    letter, fmt_ok = extract_boxed_letter("\\boxed{1}")
+    assert fmt_ok is False
+
+
+def test_extract_extended_letters():
+    # Stage 16+: support 6-opt EmoBench (A-F) and 15-opt Hi-ToM (A-O).
+    for L in ["F", "K", "O", "Z"]:
+        letter, fmt_ok = extract_boxed_letter(f"reasoning... \\boxed{{{L}}}")
+        assert fmt_ok is True
+        assert letter == L
 
 
 def test_sigmoid_window_center_high():
@@ -68,6 +79,21 @@ def test_reward_correct_short_format():
     assert r_out == 1.0
     assert r_len > 0.0
     assert r_total > 0.0
+
+
+def test_reward_long_cot_with_widened_l_max():
+    # Hi-ToM order_3 needs ~400-token CoT. With l_max=256 r_len collapses;
+    # with l_max=512 it stays ~1.0 (the Stage 16 task-aware widening).
+    _, _, r_len_short, _ = tom_mcq_reward_fn(
+        response="reasoning ... \\boxed{K}", response_token_count=400,
+        ground_truth="K", l_min=8, l_max=256, k=50,
+    )
+    _, _, r_len_long, _ = tom_mcq_reward_fn(
+        response="reasoning ... \\boxed{K}", response_token_count=400,
+        ground_truth="K", l_min=8, l_max=512, k=50,
+    )
+    assert r_len_short < 1e-6
+    assert r_len_long > 0.99
 
 
 def test_reward_correct_but_overlong_low_reward():

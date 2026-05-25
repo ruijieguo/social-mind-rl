@@ -48,12 +48,12 @@ except ImportError:  # ROLL not installable in DEV container
     logger = logging.getLogger(__name__)
 
 
-_BOXED = re.compile(r"\\boxed\{([A-D])\}")
-_VALID_LETTERS = {"A", "B", "C", "D"}
+_BOXED = re.compile(r"\\boxed\{([A-Z])\}")
+_VALID_LETTERS = set(chr(ord("A") + i) for i in range(26))
 
 
 def extract_boxed_letter(response: str) -> Tuple[str, bool]:
-    """Return (letter, format_ok). Format_ok requires a valid \\boxed{[A-D]}."""
+    """Return (letter, format_ok). Format_ok requires a valid \\boxed{[A-Z]}."""
     if not response:
         return "", False
     m = _BOXED.search(response)
@@ -129,6 +129,7 @@ class TomMcqRewardWorker(Worker):
         )
         self.l_min = float(getattr(self.worker_config, "l_min", 8))
         self.l_max = float(getattr(self.worker_config, "l_max", 256))
+        self.l_max_long = float(getattr(self.worker_config, "l_max_long", self.l_max))
         self.k = float(getattr(self.worker_config, "k", 50))
         # Stage 9+: weighted-sum reward aggregation (vs legacy multiplicative)
         self.aggregation = str(getattr(self.worker_config, "aggregation", "multiplicative"))
@@ -146,6 +147,10 @@ class TomMcqRewardWorker(Worker):
             data.batch["responses"], skip_special_tokens=True
         )
         ground_truths = data.non_tensor_batch["ground_truth"]
+        # Optional per-sample task tag (e.g. "order_3", "Knowledge"); used to
+        # widen l_max for tasks that legitimately need long CoT (Hi-ToM order_2+).
+        sources = data.non_tensor_batch.get("source", [""] * len(ground_truths))
+        tasks = data.non_tensor_batch.get("task", [""] * len(ground_truths))
 
         scores: list[float] = []
         r_fmt_list: list[float] = []
@@ -157,11 +162,19 @@ class TomMcqRewardWorker(Worker):
             response_text = response_text_list[i]
             non_pad = (resp_tokens != self.tokenizer.pad_token_id).sum().item() \
                 if self.tokenizer.pad_token_id is not None else len(resp_tokens)
+            # Hi-ToM order_2+ needs longer CoT; widen the length window.
+            src_i = str(sources[i]) if i < len(sources) else ""
+            task_i = str(tasks[i]) if i < len(tasks) else ""
+            needs_long = (
+                "hitom" in src_i.lower()
+                or task_i.startswith("order_")
+            )
+            l_max_eff = self.l_max_long if needs_long else self.l_max
             r_fmt, r_out, r_len, r_total = tom_mcq_reward_fn(
                 response=response_text,
                 response_token_count=non_pad,
                 ground_truth=str(gold),
-                l_min=self.l_min, l_max=self.l_max, k=self.k,
+                l_min=self.l_min, l_max=l_max_eff, k=self.k,
                 aggregation=self.aggregation,
                 r_fmt_weight=self.r_fmt_weight,
                 r_out_weight=self.r_out_weight,

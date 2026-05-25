@@ -66,6 +66,17 @@ case "${STAGE}" in
     # own per-task del_tom acc (Knowledge×2.0, FB×0.77). 7482 records.
     DATA_FILE="/mnt/data/tom_train_stage15_8b_filtered_weighted.jsonl"
     ;;
+  stage16_1x8_14b)
+    # Stage 16 14B: continue from v3.1 (Stage 14b ckpt-199) with Hi-ToM (1200) +
+    # EmoBench EU_emotion/EU_cause/EA + SocialIQA synth (1500) added on top of
+    # the Stage 14 weighted backbone. Targets the structural data gaps that
+    # caused +20-42pp v3.1-vs-DeepSeek gaps on Hi-ToM and EU_emotion.
+    DATA_FILE="/mnt/data/tom_train_stage16.jsonl"
+    test -f /mnt/data/hitom_eval_val200.jsonl \
+      || { echo "ERROR: /mnt/data/hitom_eval_val200.jsonl missing"; exit 1; }
+    test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
+      || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
+    ;;
   sft_stage9_14b|sft_stage9_8b)
     # SFT stages use the GPT-5.5 reasoning traces dataset
     DATA_FILE="/mnt/data/tom_train_sft.jsonl"

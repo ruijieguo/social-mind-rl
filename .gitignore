@@ -71,7 +71,9 @@ docker_volumes/
 .claude/
 framework/ExploreToM
 
+# Git worktrees (isolated experiment workspaces)
+.worktrees/
+
 # API keys / secrets
 .env
 *.env
-!**/configs/deploy.env
