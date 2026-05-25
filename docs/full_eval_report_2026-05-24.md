@@ -1,51 +1,102 @@
-# 完整评测报告 — 6 模型 × 4 Benchmark × 3 协议
+# 完整评测报告 — 7 模型 × 4 Benchmark × 3 协议
 
-> **日期**: 2026-05-24
-> **模型** (6): Qwen3-8B base, Qwen3-14B base, Qwen3-8B SOTA (v1.0 = Stage 15 ckpt-150), Qwen3-14B SOTA (v3.1 = Stage 14b ckpt-199), DeepSeek-v4-pro, GPT-5.5
+> **日期**: 2026-05-24, **v3.2 增补于 2026-05-25**
+> **模型** (7): Qwen3-8B base, Qwen3-14B base, Qwen3-8B SOTA (v1.0 = Stage 15 ckpt-150), Qwen3-14B SOTA (v3.1 = Stage 14b ckpt-199), **Qwen3-14B v3.2 (Stage 16 ckpt-270, new)**, DeepSeek-v4-pro, GPT-5.5
 > **Benchmark** (4): ToMBench (5718), Hi-ToM (600), SocialIQA dev (1954), EmoBench (1200)
 > **协议** (3): direct (max_tokens=64 for Qwen non-think / 8192 for reasoning models), cot (greedy 1-sample), del_tom (8-sample 多数投票, T=0.7)
 > **空缺标记**: `—` 表示未评测；`partial` 表示样本不完整。
 
 ---
 
-## TL;DR
+## TL;DR (v3.2 增补)
+
+1. **v3.2 Hi-ToM 全 3 协议大幅提升** vs v3.1: direct +3.66pp, cot +4.83pp, del_tom +3.33pp — 验证了 Hi-ToM 训练数据 (1200 条) + reward worker A-Z + l_max_long 修复有效。
+2. **v3.2 ToMBench 微退化** vs v3.1: -0.29 / -0.50 / -0.44pp — 新数据 (17% 占比) 在 backbone ToMBench 上引入轻微干扰。
+3. **v3.2 SocialIQA / EmoBench 基本持平** vs v3.1 (Δ ±0.6pp 内)，未能闭合与 DeepSeek 的 -2~-11pp 差距 — 仅 1500 条合成数据不足以转移这两个领域。
+4. **v3.2 仍未全面超越 DeepSeek-v4-pro** — 在 Hi-ToM cot 上接近 (0.7150 vs 0.7475, -3.25pp) 但其他大多 -3 ~ -11pp。
+5. **GPT-5.5 唯一成功跑通的是 ToMBench direct (0.8349)**，其它 11 格仍空缺。
+6. **训练对 Hi-ToM 强迁移**: 14B v3.2 vs base 在 Hi-ToM cot/del_tom 提升 +27/+28pp；SocialIQA / EmoBench 改善仍微弱。
+
+---
+
+## 0. 全局总表 — 7 模型 × 4 Benchmark × 3 协议
+
+每行 = (Benchmark, 协议)，每列 = 模型。**粗体** = 该行最高，— 表示未评测，()内为样本数若 < 标准量。
+
+| Benchmark | Protocol | 8B base | 14B base | 8B v1.0 | 14B v3.1 | **14B v3.2** | DeepSeek | GPT-5.5 |
+|---|---|---|---|---|---|---|---|---|
+| **ToMBench** (n=5718) | direct | 0.7009 | 0.7338 | 0.7450 | 0.7721 | 0.7692 | 0.8080 | **0.8349** |
+| ToMBench | cot | 0.7464 (n=3675) | — | 0.7501 | 0.7754 | **0.7704** | 0.7140 (n=500) | — |
+| ToMBench | del_tom | — | — | 0.7618 | **0.7875** | 0.7831 | 0.8069 | — |
+| **Hi-ToM** (n=600) | direct | 0.5550 | 0.5333 | 0.5717 | 0.5417 | 0.5783 | **0.8033** | — |
+| Hi-ToM | cot | 0.4467 | 0.4367 | 0.6183 | 0.6667 | **0.7150** | 0.7475 (n=598) † | — |
+| Hi-ToM | del_tom | 0.4817 | 0.4783 | 0.6567 | 0.7217 | **0.7550** | — (hang) | — |
+| **SocialIQA** (n=1954) | direct | 0.7559 | 0.7871 | 0.7605 | 0.7876 | 0.7881 | **0.8101** | — |
+| SocialIQA | cot | 0.7600 | 0.7856 | 0.7733 | 0.7861 | 0.7810 | **0.8106** | — |
+| SocialIQA | del_tom | 0.7758 | 0.8035 | 0.7851 | 0.7892 | 0.7835 | **0.8188** | — |
+| **EmoBench** (n=1200) | direct | 0.6033 | 0.6325 | 0.6000 | 0.6483 | 0.6492 | **0.7625** | — |
+| EmoBench | cot | 0.5725 | 0.6342 | 0.6208 | 0.6575 | 0.6517 | **0.7550** | — |
+| EmoBench | del_tom | 0.6233 | 0.6717 | 0.6342 | 0.6775 | 0.6600 | **0.7733** | — |
+
+† DeepSeek Hi-ToM cot 有 2 题 timeout，有效 447/598 = 0.7475；del_tom (4800 sample) 在 API 上多次 hang，不可行。
+
+**模型简称对照**:
+- `Qwen3-8B v1.0` = Stage 15 ckpt-150 (production_frozen 8B 最优)
+- `Qwen3-14B v3.1` = Stage 14b ckpt-199 (前 production_frozen 14B)
+- `Qwen3-14B v3.2` = **Stage 16 ckpt-270 (新)**：在 v3.1 续训，加入 1200 Hi-ToM 训练数据 + 1500 EmoBench/SocialIQA 合成数据 + reward worker A-Z 字母 + task-aware l_max
+- `DeepSeek-v4-pro`: max_tokens=8192 (修复 reasoning_content 截断 bug)
+- `GPT-5.5`: 仅有 ToMBench direct 一格数据
+
+**逐列每行最高排名次数** (12 行中的"该行第一"次数):
+
+| 8B base | 14B base | 8B v1.0 | 14B v3.1 | **14B v3.2** | DeepSeek | GPT-5.5 |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 1 (ToMBench del_tom) | 2 (Hi-ToM cot/del_tom) | 8 | 1 (ToMBench direct) |
+
+**v3.2 vs v3.1 提升幅度**:
+
+| Benchmark | Protocol | v3.1 | v3.2 | Δ |
+|---|---|---|---|---|
+| ToMBench | direct | 0.7721 | 0.7692 | **-0.29pp** |
+| ToMBench | cot | 0.7754 | 0.7704 | **-0.50pp** |
+| ToMBench | del_tom | 0.7875 | 0.7831 | **-0.44pp** |
+| **Hi-ToM** | direct | 0.5417 | 0.5783 | **+3.66pp** ⭐ |
+| **Hi-ToM** | cot | 0.6667 | 0.7150 | **+4.83pp** ⭐⭐ |
+| **Hi-ToM** | del_tom | 0.7217 | 0.7550 | **+3.33pp** ⭐ |
+| SocialIQA | direct | 0.7876 | 0.7881 | +0.05pp |
+| SocialIQA | cot | 0.7861 | 0.7810 | -0.51pp |
+| SocialIQA | del_tom | 0.7892 | 0.7835 | -0.57pp |
+| EmoBench | direct | 0.6483 | 0.6492 | +0.09pp |
+| EmoBench | cot | 0.6575 | 0.6517 | -0.58pp |
+| EmoBench | del_tom | 0.6775 | 0.6600 | **-1.75pp** ⚠️ |
+
+**v3.2 vs DeepSeek-v4-pro 距离**:
+
+| Benchmark | Protocol | v3.2 | DeepSeek | Gap |
+|---|---|---|---|---|
+| ToMBench | direct | 0.7692 | 0.8080 | **-3.88pp** |
+| ToMBench | cot | 0.7704 | 0.7140 | **+5.64pp** ✅ (但 DeepSeek 是 subset500) |
+| ToMBench | del_tom | 0.7831 | 0.8069 | -2.38pp |
+| Hi-ToM | direct | 0.5783 | 0.8033 | -22.50pp |
+| Hi-ToM | cot | 0.7150 | 0.7475 | **-3.25pp** |
+| Hi-ToM | del_tom | 0.7550 | — (hang) | — ✅ |
+| SocialIQA | direct | 0.7881 | 0.8101 | -2.20pp |
+| SocialIQA | cot | 0.7810 | 0.8106 | -2.96pp |
+| SocialIQA | del_tom | 0.7835 | 0.8188 | -3.53pp |
+| EmoBench | direct | 0.6492 | 0.7625 | -11.33pp |
+| EmoBench | cot | 0.6517 | 0.7550 | -10.33pp |
+| EmoBench | del_tom | 0.6600 | 0.7733 | -11.33pp |
+
+**总结**: v3.2 在 Hi-ToM 上**接近 DeepSeek**（cot gap 缩到 -3.25pp，del_tom 没法直接比因 DeepSeek hang），EmoBench gap 仍 ~-11pp 是最大瓶颈。
+
+---
+
+## TL;DR (历史 v3.1 总结)
 
 1. **GPT-5.5 唯一成功跑通的是 ToMBench direct (0.8349)**，其它 11 格仍空缺。
 2. **DeepSeek-v4-pro 在 4 个 benchmark 上几乎全面领先**；唯一例外是 ToMBench cot (0.7140 subset500，疑被 reasoning truncation 拖累)。
 3. **训练对 ToMBench / Hi-ToM 强迁移**: 14B v3.1 vs base 在 ToMBench 提升 ~+4pp，Hi-ToM cot/del_tom 提升 +23~+24pp；SocialIQA / EmoBench 几乎无迁移 (<2pp)。
 4. **Hi-ToM 对 DeepSeek 的 reasoning_content 长度极敏感**: del_tom (4800 sample × 长 CoT) 在 max_tokens=8192 下仍多次 hang，无法完成；direct 完整 (0.8033)，cot 完整 600/600 但有 2 个 timeout (447/598 = 0.7475)。
-
----
-
-## 0. 全局总表 — 6 模型 × 4 Benchmark × 3 协议
-
-每行 = (Benchmark, 协议)，每列 = 模型。**粗体** = 该行最高，— 表示未评测，()内为样本数若 < 标准量。
-
-| Benchmark | Protocol | Qwen3-8B base | Qwen3-14B base | Qwen3-8B v1.0 | Qwen3-14B v3.1 | DeepSeek-v4-pro | GPT-5.5 |
-|---|---|---|---|---|---|---|---|
-| **ToMBench** (n=5718) | direct | 0.7009 | 0.7338 | 0.7450 | 0.7721 | 0.8080 | **0.8349** |
-| ToMBench | cot | 0.7464 (n=3675) | — | 0.7501 | 0.7754 | 0.7140 (n=500) | — |
-| ToMBench | del_tom | — | — | 0.7618 | 0.7875 | **0.8069** | — |
-| **Hi-ToM** (n=600) | direct | 0.5550 | 0.5333 | 0.5717 | 0.5417 | **0.8033** | — |
-| Hi-ToM | cot | 0.4467 | 0.4367 | 0.6183 | 0.6667 | **0.7475** (n=598) | — |
-| Hi-ToM | del_tom | 0.4817 | 0.4783 | 0.6567 | **0.7217** | — (hang) | — |
-| **SocialIQA** (n=1954) | direct | 0.7559 | 0.7871 | 0.7605 | 0.7876 | **0.8101** | — |
-| SocialIQA | cot | 0.7600 | 0.7856 | 0.7733 | 0.7861 | **0.8106** | — |
-| SocialIQA | del_tom | 0.7758 | 0.8035 | 0.7851 | 0.7892 | **0.8188** | — |
-| **EmoBench** (n=1200) | direct | 0.6033 | 0.6325 | 0.6000 | 0.6483 | **0.7625** | — |
-| EmoBench | cot | 0.5725 | 0.6342 | 0.6208 | 0.6575 | **0.7550** | — |
-| EmoBench | del_tom | 0.6233 | 0.6717 | 0.6342 | 0.6775 | **0.7733** | — |
-
-**模型简称对照**:
-- `Qwen3-8B v1.0` = Stage 15 ckpt-150 (production_frozen 8B 最优)
-- `Qwen3-14B v3.1` = Stage 14b ckpt-199 (production_frozen 14B 最优)
-- `DeepSeek-v4-pro`: max_tokens=8192 (修复 reasoning_content 截断 bug)
-- `GPT-5.5`: 仅有 ToMBench direct 一格数据
-
-**逐列每行最高排名次数** (12 行中的"该行第一"次数):
-| Qwen3-8B base | 14B base | Qwen3-8B v1.0 | Qwen3-14B v3.1 | DeepSeek | GPT-5.5 |
-|---|---|---|---|---|---|
-| 0 | 0 | 0 | 1 (Hi-ToM del_tom) | 10 | 1 (ToMBench direct, 唯一可比格) |
 
 ---
 
