@@ -1,0 +1,194 @@
+# Stage-14 (1×8 H800, Qwen3-14B): task-weighted resampling of Stage 12 data
+#
+# Init: Stage 12 HF model (full 5718 del_tom 0.7823, project record)
+# Data: tom_train_stage14_weighted.jsonl (14408 records)
+#
+# Approach: take the 12519 Stage 12 training records and resample by inverse
+# task accuracy, so the model spends more gradient on weak tasks. Multipliers:
+#   Knowledge       (acc 0.5260) ×1.92  →  1847  → 3523
+#   Desire          (acc 0.6083) ×1.65  →   758  → 1246
+#   Belief          (acc 0.7430) ×1.21  →  1832  → 2236
+#   Emotion         (acc 0.7607) ×1.15  →   659  →  760
+#   Non-literal Comm(acc 0.8102) ×0.99  →   910  →  902
+#   Intention       (acc 0.8294) ×0.93  →  1055  →  972
+#   False Belief    (acc 0.8946) ×0.72  →  2533  → 1844
+#   Other tasks                  ×1.00  →  unchanged
+#
+# Compared to Stage 13 (which simply continued training on the same data and
+# regressed to 0.7360 at step 100), this approach changes the data distribution
+# so gradient signal flows differently. We're not just "training longer" — we're
+# rebalancing where the model invests capacity.
+#
+# Recipe: identical to Stage 12 except pretrain (s12) and data path.
+# max_steps=200, save_steps=50 (every 50 step ckpt — captures peak before overfit)
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+exp_name: "qwen3-14B-tombench-rlvr-stage14b-1x8"
+seed: 42
+logging_dir: ./output/logs
+output_dir: ./output
+system_envs:
+  USE_MODELSCOPE: '1'
+
+checkpoint_config:
+  type: file_system
+  output_dir: /mnt/output/${exp_name}
+
+track_with: stdout
+tracker_kwargs: {}
+
+num_gpus_per_node: 8
+
+max_steps: 200
+save_steps: 50
+logging_steps: 1
+eval_steps: 25
+resume_from_checkpoint: false
+
+rollout_batch_size: 32
+prompt_length: 1024
+response_length: 256
+
+num_return_sequences_in_group: 8
+ppo_epochs: 1
+adv_estimator: "grpo"
+
+use_pg_clip_range: true
+pg_clip_low: 0.20
+pg_clip_high: 0.28
+dual_clip_loss: true
+
+value_clip: 0.5
+reward_clip: 5
+advantage_clip: 2.0
+
+norm_mean_type: ~
+norm_std_type: ~
+
+max_len_mask: true
+difficulty_mask: true
+# CHANGED: tightened from (0.1, 0.95) → (0.15, 0.80) because Stage 12 has very high
+# pass rate on training data (rollout group means ≥ 0.95 dominated, masking ~96% of
+# samples in Stage 14 attempt 1). The (0.15, 0.80) window keeps only the "learnable
+# middle" — items where 1-6 of 8 rollouts are correct, giving the strongest gradient.
+difficulty_low_threshold: 0.15
+difficulty_high_threshold: 0.80
+error_max_len_clip: false
+
+difficulty_loss_weight: false
+length_loss_weight: false
+
+add_token_level_kl: false
+
+whiten_advantages: true
+
+use_additional_prompts: true
+max_running_requests: 128
+is_num_return_sequences_expand: false
+
+# Init from Stage 12 — best model so far
+pretrain: /mnt/output/qwen3-14B-tom-hf-stage12
+reward_pretrain: /mnt/output/qwen3-14B-tom-hf-stage12
+
+validation:
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tombench_eval_subset500.jsonl
+  generating_args:
+    max_new_tokens: 64
+    top_p: 1.0
+    top_k: -1
+    num_beams: 1
+    temperature: 0.0
+    num_return_sequences: 1
+
+actor_train:
+  model_args:
+    disable_gradient_checkpointing: false
+    dtype: bf16
+    model_type: ~
+  training_args:
+    learning_rate: 1.0e-6
+    weight_decay: 0
+    per_device_train_batch_size: 1
+    gradient_accumulation_steps: 32
+    warmup_steps: 20
+    num_train_epochs: 50
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tom_train_stage14_weighted.jsonl
+    domain_interleave_probs:
+      tom_mcq: 1.0
+    dataset_dir: /mnt/data
+    messages: messages
+    interleave_probs: "1.0"
+    preprocessing_num_workers: 16
+  strategy_args:
+    strategy_name: megatron_train
+    strategy_config:
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+      use_distributed_optimizer: true
+      distrib_optim_fully_reshardable_mem_efficient: true
+      recompute_granularity: full
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+actor_infer:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+  generating_args:
+    max_new_tokens: ${response_length}
+    top_p: 0.95
+    top_k: 50
+    num_beams: 1
+    temperature: 0.99
+    num_return_sequences: ${num_return_sequences_in_group}
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: vllm
+    strategy_config:
+      gpu_memory_utilization: 0.55
+      block_size: 16
+      max_model_len: 2048
+      tensor_parallel_size: 2
+  device_mapping: list(range(0,8))
+  infer_batch_size: 1
+
+reference:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+    model_type: ~
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: megatron_infer
+    strategy_config:
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+rewards:
+  tom_mcq:
+    worker_cls: roll.pipeline.rlvr.rewards.tom_mcq_reward_worker.TomMcqRewardWorker
+    tag_included: [tom_mcq]
+    model_args:
+      model_name_or_path: ${reward_pretrain}
+    data_args:
+      template: qwen3
+    world_size: 8
+    infer_batch_size: 16
+    l_min: 8
+    l_max: 256
+    k: 50
