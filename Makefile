@@ -9,6 +9,7 @@ TRAIN_HOST_HOSTONLY = $(shell echo "$(TRAIN_HOST)" | sed 's/.*@//')
 .PHONY: help env-check build-data baseline sync-up sync-down \
         train-stage1 train-stage1-1x8 train-stage2 train-stage2-1x8 \
         train-stage3-l3 \
+        train-stage1-27b-1x8 train-stage1-27b-1x8-smoke \
         serve-launch serve-stop serve-url eval-final analyze \
         pipeline-stage1 pipeline-stage2 pipeline-l3 \
         pipeline-stage1-1x8 pipeline-stage2-1x8 \
@@ -112,6 +113,50 @@ train-stage16-1x8-14b: ## v3.2: continue v3.1 with Hi-ToM + EmoBench + SocialIQA
 	  docker compose -f docker/train/docker-compose.yml \
 	  --env-file configs/deploy.env \
 	  run --rm --build -e STAGE=stage16_1x8_14b train"
+
+train-stage17-1x8-14b: ## v3.3: continue v3.2 with targeted gap-closing data
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=stage17_1x8_14b train"
+
+train-stage18-1x8-14b: ## v3.4: continue v3.3 with GPT-5.5 distilled real-error CoT
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=stage18_1x8_14b train"
+
+train-stage19-1x8-14b: ## v3.5: improved distill (3-sample voting + ontology), init v3.3
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
+	  docker compose -f docker/train/docker-compose.yml \
+	  --env-file configs/deploy.env \
+	  run --rm --build -e STAGE=stage19_1x8_14b train"
+
+# 27B training runs on .191 (NOT .181, which is busy with 14B Stage 18).
+# .191 has a different storage layout, so these targets override TRAIN_HOST /
+# TRAIN_PATH / TRAIN_*_DIR inline rather than relying on configs/deploy.env
+# (which is .181-scoped and must not be changed while Stage 18 is running).
+TRAIN_HOST_191 = h800@172.16.120.191
+TRAIN_PATH_191 = /home/h800/grj-projects/qwen3-tom
+TRAIN_DATA_DIR_191 = /home/h800/grj-projects/tom-data
+TRAIN_MODELS_DIR_191 = /home/h800/grj-projects/models
+TRAIN_OUTPUT_DIR_191 = /home/h800/grj-projects/tom-output
+
+train-stage1-27b-1x8: ## v4.0 (1×8 H800, .191): Qwen3.6-27B Stage 1 (Stage-16 recipe, TP=4)
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST_191) "cd $(TRAIN_PATH_191) && \
+	  TRAIN_DATA_DIR=$(TRAIN_DATA_DIR_191) \
+	  TRAIN_MODELS_DIR=$(TRAIN_MODELS_DIR_191) \
+	  TRAIN_OUTPUT_DIR=$(TRAIN_OUTPUT_DIR_191) \
+	  docker compose -f docker/train/docker-compose.qwen35.yml \
+	  run --rm -e STAGE=stage1_27b_1x8 train"
+
+train-stage1-27b-1x8-smoke: ## v4.0 SMOKE (1×8 H800, .191): Qwen3.6-27B 3-step pre-flight
+	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST_191) "cd $(TRAIN_PATH_191) && \
+	  TRAIN_DATA_DIR=$(TRAIN_DATA_DIR_191) \
+	  TRAIN_MODELS_DIR=$(TRAIN_MODELS_DIR_191) \
+	  TRAIN_OUTPUT_DIR=$(TRAIN_OUTPUT_DIR_191) \
+	  docker compose -f docker/train/docker-compose.qwen35.yml \
+	  run --rm -e STAGE=stage1_27b_1x8_smoke train"
 
 train-stage10-1x8-14b: ## Phase 18 (1×8 H800): Qwen3-14B Stage 10 (evidence-based: weighted_sum reward + entropy 0.005 + s8 baseline)
 	ssh -i $(TRAIN_SSH_KEY) $(TRAIN_HOST) "cd $(TRAIN_PATH) && \
