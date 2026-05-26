@@ -74,6 +74,10 @@ framework/ExploreToM
 # Git worktrees (isolated experiment workspaces)
 .worktrees/
 
+# 27B experiment training data (large; lives on TRAIN, not in repo).
+# Code (configs/, scripts/, docs/, README) IS tracked.
+experiment/qwen3.6-27b/data/*.jsonl
+
 # API keys / secrets
 .env
 *.env

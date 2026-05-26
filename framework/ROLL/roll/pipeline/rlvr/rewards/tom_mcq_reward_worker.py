@@ -130,6 +130,7 @@ class TomMcqRewardWorker(Worker):
         self.l_min = float(getattr(self.worker_config, "l_min", 8))
         self.l_max = float(getattr(self.worker_config, "l_max", 256))
         self.l_max_long = float(getattr(self.worker_config, "l_max_long", self.l_max))
+        self.l_max_short = float(getattr(self.worker_config, "l_max_short", self.l_max))
         self.k = float(getattr(self.worker_config, "k", 50))
         # Stage 9+: weighted-sum reward aggregation (vs legacy multiplicative)
         self.aggregation = str(getattr(self.worker_config, "aggregation", "multiplicative"))
@@ -163,13 +164,21 @@ class TomMcqRewardWorker(Worker):
             non_pad = (resp_tokens != self.tokenizer.pad_token_id).sum().item() \
                 if self.tokenizer.pad_token_id is not None else len(resp_tokens)
             # Hi-ToM order_2+ needs longer CoT; widen the length window.
+            # Hi-ToM direct-style samples (source=*direct*) need shorter — the
+            # whole point is forcing compressed in-forward-pass answers.
             src_i = str(sources[i]) if i < len(sources) else ""
             task_i = str(tasks[i]) if i < len(tasks) else ""
-            needs_long = (
+            is_direct_style = "direct" in src_i.lower()
+            needs_long = (not is_direct_style) and (
                 "hitom" in src_i.lower()
                 or task_i.startswith("order_")
             )
-            l_max_eff = self.l_max_long if needs_long else self.l_max
+            if is_direct_style:
+                l_max_eff = self.l_max_short
+            elif needs_long:
+                l_max_eff = self.l_max_long
+            else:
+                l_max_eff = self.l_max
             r_fmt, r_out, r_len, r_total = tom_mcq_reward_fn(
                 response=response_text,
                 response_token_count=non_pad,

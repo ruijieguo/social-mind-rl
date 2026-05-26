@@ -12,7 +12,15 @@ set -euo pipefail
 #   /mnt/output            — training outputs
 
 STAGE="${STAGE:-stage1}"
-CONFIG_DIR="/workspace/configs/tombench-rlvr"
+
+# Route 27B stages to the dedicated experiment/qwen3.6-27b/configs/ tree;
+# everything else uses the project-wide configs/tombench-rlvr/. This keeps
+# the 27B work isolated from the 14B/8B production configs.
+if [[ "${STAGE}" == *_27b* ]]; then
+  CONFIG_DIR="/workspace/experiment/qwen3.6-27b/configs"
+else
+  CONFIG_DIR="/workspace/configs/tombench-rlvr"
+fi
 
 # Detect SFT vs RLVR pipeline by stage name
 # SFT stages: sft_stage9_14b, sft_stage9_8b, etc.
@@ -77,6 +85,46 @@ case "${STAGE}" in
     test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
       || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
     ;;
+  stage17_1x8_14b)
+    # Stage 17 14B: v3.3 = continue from v3.2 (Stage 16 ckpt-270) with targeted
+    # gap-closing data: Hi-ToM direct-style (960), EU_emotion expansion (1500),
+    # EU_cause/EA/SocialIQA increments (1400), Belief distillation (~600).
+    DATA_FILE="/mnt/data/tom_train_stage17.jsonl"
+    test -f /mnt/data/hitom_eval_val200.jsonl \
+      || { echo "ERROR: /mnt/data/hitom_eval_val200.jsonl missing"; exit 1; }
+    test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
+      || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
+    ;;
+  stage18_1x8_14b)
+    # Stage 18 14B: v3.4 = continue from v3.3 (Stage 17 ckpt-120) with GPT-5.5
+    # distillation of v3.3 actual eval errors. ~734 distilled records added on
+    # top of stage17 backbone (~19033 total).
+    DATA_FILE="/mnt/data/tom_train_stage18.jsonl"
+    test -f /mnt/data/hitom_eval_val200.jsonl \
+      || { echo "ERROR: /mnt/data/hitom_eval_val200.jsonl missing"; exit 1; }
+    test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
+      || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
+    ;;
+  stage19_1x8_14b)
+    # Stage 19 14B: v3.5 = improved GPT-5.5 distillation (3-sample voting +
+    # emotion ontology injection). Init from v3.3 ckpt-120 (NOT v3.4) — fresh
+    # test of pure improved-distill effect. ~450 high-quality distill records.
+    DATA_FILE="/mnt/data/tom_train_stage19.jsonl"
+    test -f /mnt/data/hitom_eval_val200.jsonl \
+      || { echo "ERROR: /mnt/data/hitom_eval_val200.jsonl missing"; exit 1; }
+    test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
+      || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
+    ;;
+  stage1_27b_1x8|stage1_27b_1x8_smoke)
+    # Stage 1 27B (v4.0): mirror of 14B Stage 16 (v3.2) recipe on Qwen3.6-27B
+    # base. TP=4 (27B in TP=2 OOMs on 80GB H800). Same data + validation
+    # triplet as 14B Stage 16. _smoke variant runs 3 steps for pre-flight.
+    DATA_FILE="/mnt/data/tom_train_stage16.jsonl"
+    test -f /mnt/data/hitom_eval_val200.jsonl \
+      || { echo "ERROR: /mnt/data/hitom_eval_val200.jsonl missing"; exit 1; }
+    test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
+      || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
+    ;;
   sft_stage9_14b|sft_stage9_8b)
     # SFT stages use the GPT-5.5 reasoning traces dataset
     DATA_FILE="/mnt/data/tom_train_sft.jsonl"
@@ -98,7 +146,7 @@ if [[ "${PIPELINE}" == "rlvr" ]]; then
 fi
 
 cd /workspace/framework/ROLL
-ln -sfn /workspace/configs/tombench-rlvr examples/tombench_configs
+ln -sfn "${CONFIG_DIR}" examples/tombench_configs
 
 if [[ "${PIPELINE}" == "sft" ]]; then
   exec python examples/start_sft_pipeline.py \

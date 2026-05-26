@@ -1,0 +1,200 @@
+# Stage-18 (1×8 H800, Qwen3-14B): v3.4 = continue from v3.3 with GPT-5.5 distillation
+#
+# Init: Stage 17 ckpt-120 HF (v3.3, 800-q val_all=0.6862 peak).
+# Data: tom_train_stage18.jsonl (~19033):
+#   - tom_train_stage17 backbone (18299, v3.3)
+#   - 734 GPT-5.5 distillation records targeting v3.3's actual eval errors:
+#     * EmoBench (EU_emotion + EU_cause + EA): ~204
+#     * SocialIQA (social_iqa): ~237
+#     * ToMBench Belief + Knowledge: ~359 (Belief 2× paraphrase, Knowledge 1×)
+#     * Hi-ToM order_2-4: ~125
+#   Method: GPT-5.5 paraphrased v3.3 error stories + GPT-5.5 verified correct
+#   answer; only kept records where GPT-5.5 boxed answer == gold.
+#
+# Why this stage exists:
+#   v3.2/v3.3 EmoBench/SocialIQA gains stalled despite 1500+ DeepSeek-synth
+#   examples (synth ROI was ~0). Hypothesis: synth data drift from real eval
+#   distribution. v3.4 grounds training data in EXACT eval errors v3.3 made,
+#   paraphrased to avoid leakage but preserving the reasoning pattern.
+#
+# Differences vs Stage 17:
+#   - response_length 640 → 512
+#   - max_model_len   2816 → 2304
+#   - learning_rate   3e-7 → 2e-7
+#   - max_steps       200 → 150
+#   - save_steps      20 → 15
+#   - eval_steps      20 → 15
+#   - warmup_steps    20 → 15
+#   - reward.l_max_long 640 → 512
+#   - pretrain init from Stage 17 ckpt-120
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+exp_name: "qwen3-14B-tombench-rlvr-stage18-1x8"
+seed: 42
+logging_dir: ./output/logs
+output_dir: ./output
+system_envs:
+  USE_MODELSCOPE: '1'
+
+checkpoint_config:
+  type: file_system
+  output_dir: /mnt/output/${exp_name}
+
+track_with: stdout
+tracker_kwargs: {}
+
+num_gpus_per_node: 8
+
+max_steps: 150
+save_steps: 15
+logging_steps: 1
+eval_steps: 15
+resume_from_checkpoint: false
+
+rollout_batch_size: 32
+prompt_length: 1024
+response_length: 512
+
+num_return_sequences_in_group: 8
+ppo_epochs: 1
+adv_estimator: "grpo"
+
+use_pg_clip_range: true
+pg_clip_low: 0.20
+pg_clip_high: 0.28
+dual_clip_loss: true
+
+value_clip: 0.5
+reward_clip: 5
+advantage_clip: 2.0
+
+norm_mean_type: ~
+norm_std_type: ~
+
+max_len_mask: true
+difficulty_mask: true
+difficulty_low_threshold: 0.05
+difficulty_high_threshold: 0.85
+error_max_len_clip: false
+
+difficulty_loss_weight: false
+length_loss_weight: false
+
+add_token_level_kl: false
+
+whiten_advantages: true
+
+use_additional_prompts: true
+max_running_requests: 128
+is_num_return_sequences_expand: false
+
+# Init from Stage 17 ckpt-120 (v3.3)
+pretrain: /mnt/output/qwen3-14B-tombench-rlvr-stage17-1x8-hf-ckpt120
+reward_pretrain: /mnt/output/qwen3-14B-tombench-rlvr-stage17-1x8-hf-ckpt120
+
+validation:
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tombench_eval_subset500.jsonl
+      - /mnt/data/hitom_eval_val200.jsonl
+      - /mnt/data/emobench_eu_emotion_val100.jsonl
+  generating_args:
+    max_new_tokens: 256
+    top_p: 1.0
+    top_k: -1
+    num_beams: 1
+    temperature: 0.0
+    num_return_sequences: 1
+
+actor_train:
+  model_args:
+    disable_gradient_checkpointing: false
+    dtype: bf16
+    model_type: ~
+  training_args:
+    learning_rate: 2.0e-7
+    weight_decay: 0
+    per_device_train_batch_size: 1
+    gradient_accumulation_steps: 32
+    warmup_steps: 15
+    num_train_epochs: 50
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tom_train_stage18.jsonl
+    domain_interleave_probs:
+      tom_mcq: 1.0
+    dataset_dir: /mnt/data
+    messages: messages
+    interleave_probs: "1.0"
+    preprocessing_num_workers: 16
+  strategy_args:
+    strategy_name: megatron_train
+    strategy_config:
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+      use_distributed_optimizer: true
+      distrib_optim_fully_reshardable_mem_efficient: true
+      recompute_granularity: full
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+actor_infer:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+  generating_args:
+    max_new_tokens: ${response_length}
+    top_p: 0.95
+    top_k: 50
+    num_beams: 1
+    temperature: 0.99
+    num_return_sequences: ${num_return_sequences_in_group}
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: vllm
+    strategy_config:
+      gpu_memory_utilization: 0.45
+      block_size: 16
+      max_model_len: 2304
+      tensor_parallel_size: 2
+  device_mapping: list(range(0,8))
+  infer_batch_size: 1
+
+reference:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+    model_type: ~
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: megatron_infer
+    strategy_config:
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+rewards:
+  tom_mcq:
+    worker_cls: roll.pipeline.rlvr.rewards.tom_mcq_reward_worker.TomMcqRewardWorker
+    tag_included: [tom_mcq]
+    model_args:
+      model_name_or_path: ${reward_pretrain}
+    data_args:
+      template: qwen3
+    world_size: 8
+    infer_batch_size: 16
+    l_min: 8
+    l_max: 128
+    l_max_long: 512
+    l_max_short: 64
+    k: 50
