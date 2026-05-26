@@ -1,0 +1,51 @@
+# Qwen3.5 / Qwen3.6-27B variant of docker/train/docker-compose.yml.
+#
+# Two deltas vs the base compose file:
+#   1. dockerfile  → docker/train/Dockerfile.qwen35  (newer transformers + vllm)
+#   2. image       → qwen3-tom-train:qwen35         (separate tag, does not
+#                                                    clobber `:latest` which
+#                                                    .181 Stage 18 still uses)
+#
+# Everything else (volume mounts, env vars, GPU reservation, IPC/cap_add,
+# shm_size, ulimits) is byte-equivalent to docker-compose.yml so 27B
+# stages get the same runtime behavior as 14B/8B once the pin set differs.
+services:
+  train:
+    build:
+      context: ../..
+      dockerfile: docker/train/Dockerfile.qwen35
+    image: qwen3-tom-train:qwen35
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace
+      - ${TRAIN_DATA_DIR:-/data_nvme/grj-projects/tom-data}:/mnt/data
+      - ${TRAIN_MODELS_DIR:-/data_nvme/grj-projects/models}:/mnt/models
+      - ${TRAIN_OUTPUT_DIR:-/data_nvme/grj-projects/tom-output}:/mnt/output
+    environment:
+      STAGE: ${STAGE:-stage1_27b_1x8}
+      USE_MODELSCOPE: '1'
+      PYTHONPATH: /workspace:/workspace/framework/ROLL
+      HF_HOME: /mnt/models/.cache/huggingface
+      MODELSCOPE_CACHE: /mnt/models/.cache/modelscope
+      # Reduce memory fragmentation so colocated train/infer/reference + save
+      # can coexist on 80 GB H800. Without this, save_checkpoint OOMs at ~75
+      # GiB allocated while needing another 4 GiB for optimizer reshard.
+      PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ipc: host
+    # CUDA IPC across processes uses pidfd_getfd, which needs SYS_PTRACE.
+    # Without it ROLL's model weight sync from train→infer workers fails:
+    #   RuntimeError: pidfd_getfd: Operation not permitted
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    shm_size: 64gb
