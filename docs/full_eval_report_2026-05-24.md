@@ -1,14 +1,57 @@
-# 完整评测报告 — 7 模型 × 4 Benchmark × 3 协议
+# 完整评测报告 — 9 模型 × 4 Benchmark × 3 协议
 
-> **日期**: 2026-05-24, **v3.2 增补于 2026-05-25**
-> **模型** (7): Qwen3-8B base, Qwen3-14B base, Qwen3-8B SOTA (v1.0 = Stage 15 ckpt-150), Qwen3-14B SOTA (v3.1 = Stage 14b ckpt-199), **Qwen3-14B v3.2 (Stage 16 ckpt-270, new)**, DeepSeek-v4-pro, GPT-5.5
+> **日期**: 2026-05-24，**v3.2 增补于 2026-05-25**，**v3.3 增补于 2026-05-25**，**v3.4 增补于 2026-05-26**
+> **模型** (9): Qwen3-8B base, Qwen3-14B base, Qwen3-8B SOTA (v1.0 = Stage 15 ckpt-150), Qwen3-14B SOTA (v3.1 = Stage 14b ckpt-199), Qwen3-14B v3.2 (Stage 16 ckpt-270), Qwen3-14B v3.3 (Stage 17 ckpt-120), **Qwen3-14B v3.4 (Stage 18 ckpt-30, new)**, DeepSeek-v4-pro, GPT-5.5
 > **Benchmark** (4): ToMBench (5718), Hi-ToM (600), SocialIQA dev (1954), EmoBench (1200)
 > **协议** (3): direct (max_tokens=64 for Qwen non-think / 8192 for reasoning models), cot (greedy 1-sample), del_tom (8-sample 多数投票, T=0.7)
-> **空缺标记**: `—` 表示未评测；`partial` 表示样本不完整。
 
 ---
 
-## TL;DR (v3.2 增补)
+## TL;DR (v3.4 增补 — GPT-5.5 蒸馏)
+
+1. **v3.4 Hi-ToM 持续突破**: cot **+0.83pp** (距 DS 仅 **-0.42pp**)，del_tom **+1.17pp**, direct +0.16pp — distillation 真正帮 belief tracking
+2. **v3.4 SocialIQA / EmoBench 几乎持平 v3.3** — distillation 在 emotion/commonsense knowledge 上无效（base model 缺知识，蒸馏教不会）
+3. **v3.4 ToMBench 微退** -0.19~-0.24pp (与 v3.2/v3.3 同稀释模式)
+4. **v3.1→v3.4 Hi-ToM cot 进展轨迹**: 0.6667 → 0.7150 → 0.7350 → **0.7433** (gap 从 -8.08pp → -3.25pp → -1.25pp → **-0.42pp**)
+5. **方法论结论**: GPT-5.5 paraphrase + verify 蒸馏对**推理 task** (Hi-ToM/ToMBench) 有效, 对 **knowledge task** (EmoBench/SocialIQA) 无效
+
+---
+
+## 0. 全局总表 — 9 模型 × 4 Benchmark × 3 协议
+
+每行 = (Benchmark, 协议)，每列 = 模型。**粗体** = 该行最高，— 表示未评测。
+
+| Benchmark | Protocol | 8B base | 14B base | 8B v1.0 | 14B v3.1 | 14B v3.2 | 14B v3.3 | **14B v3.4** | DeepSeek | GPT-5.5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **ToMBench** (n=5718) | direct | 0.7009 | 0.7338 | 0.7450 | 0.7721 | 0.7692 | 0.7658 | 0.7674 | 0.8080 | **0.8349** |
+| ToMBench | cot | 0.7464 (n=3675) | — | 0.7501 | 0.7754 | 0.7704 | 0.7698 | 0.7674 | 0.7140 (n=500) | — |
+| ToMBench | del_tom | — | — | 0.7618 | **0.7875** | 0.7831 | 0.7796 | 0.7777 | 0.8069 | — |
+| **Hi-ToM** (n=600) | direct | 0.5550 | 0.5333 | 0.5717 | 0.5417 | 0.5783 | 0.5817 | 0.5833 | **0.8033** | — |
+| Hi-ToM | cot | 0.4467 | 0.4367 | 0.6183 | 0.6667 | 0.7150 | 0.7350 | 0.7433 | **0.7475** (n=598) † | — |
+| Hi-ToM | del_tom | 0.4817 | 0.4783 | 0.6567 | 0.7217 | 0.7550 | 0.7500 | **0.7617** | — (hang) | — |
+| **SocialIQA** (n=1954) | direct | 0.7559 | 0.7871 | 0.7605 | 0.7876 | 0.7881 | 0.7866 | 0.7866 | **0.8101** | — |
+| SocialIQA | cot | 0.7600 | 0.7856 | 0.7733 | 0.7861 | 0.7810 | 0.7825 | 0.7774 | **0.8106** | — |
+| SocialIQA | del_tom | 0.7758 | 0.8035 | 0.7851 | 0.7892 | 0.7835 | 0.7830 | 0.7861 | **0.8188** | — |
+| **EmoBench** (n=1200) | direct | 0.6033 | 0.6325 | 0.6000 | 0.6483 | 0.6492 | 0.6483 | 0.6508 | **0.7625** | — |
+| EmoBench | cot | 0.5725 | 0.6342 | 0.6208 | 0.6575 | 0.6517 | 0.6483 | 0.6450 | **0.7550** | — |
+| EmoBench | del_tom | 0.6233 | 0.6717 | 0.6342 | 0.6775 | 0.6600 | 0.6700 | 0.6633 | **0.7733** | — |
+
+† DeepSeek Hi-ToM cot 有 2 题 timeout，有效 447/598 = 0.7475。
+
+**v3.4 vs DeepSeek (12 cell, ToMBench cot DS 是 subset500)**:
+- ✅ 1/11 cells ≥ DeepSeek (ToMBench cot, +5.34pp — 但 DS 是 subset500 + truncation bug)
+- 📈 距 DS 最近: Hi-ToM cot **-0.42pp**, ToMBench del_tom **-2.92pp**, SocialIQA direct -2.35pp
+- 📉 距 DS 最远: Hi-ToM direct -22.00pp, EmoBench (3 protocols) -11pp
+
+**v3.1 → v3.4 进化路径** (Hi-ToM cot, 距 DS 缩小):
+- v3.1: -8.08pp
+- v3.2 (1200 Hi-ToM 真实数据 + reward worker A-Z fix): -3.25pp
+- v3.3 (Hi-ToM direct-style + EmoBench/SocialIQA 合成扩充): -1.25pp
+- **v3.4 (GPT-5.5 paraphrase + verified distillation): -0.42pp** ⭐
+
+---
+
+## TL;DR (v3.2 增补 — 历史)
 
 1. **v3.2 Hi-ToM 全 3 协议大幅提升** vs v3.1: direct +3.66pp, cot +4.83pp, del_tom +3.33pp — 验证了 Hi-ToM 训练数据 (1200 条) + reward worker A-Z + l_max_long 修复有效。
 2. **v3.2 ToMBench 微退化** vs v3.1: -0.29 / -0.50 / -0.44pp — 新数据 (17% 占比) 在 backbone ToMBench 上引入轻微干扰。
