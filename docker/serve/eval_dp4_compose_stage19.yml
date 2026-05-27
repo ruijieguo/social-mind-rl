@@ -1,0 +1,130 @@
+# Four vLLM instances × TP=2 × 8 H800 = full GPU saturation for parallel
+# evaluation of Qwen3-14B v3.5 (Stage 19 ckpt-120) across 4 ToM benchmarks
+# (ToMBench / EmoBench / SocialIQA / Hi-ToM).
+#
+# Endpoints (host network, IP = 172.16.120.181):
+#   serve_0  GPU 0,1  port 8001
+#   serve_1  GPU 2,3  port 8002
+#   serve_2  GPU 4,5  port 8003
+#   serve_3  GPU 6,7  port 8004
+#
+# All four serve v3.5 ckpt-120 weights at:
+#   /mnt/output/qwen3-14B-tombench-rlvr-stage19-1x8-hf-ckpt120
+# bf16, max_model_len 8192.
+#
+# Bring up:
+#   docker compose -f docker/serve/eval_dp4_compose_stage19.yml \
+#     --env-file configs/deploy.env up -d --build
+#
+# Tear down:
+#   docker compose -f docker/serve/eval_dp4_compose_stage19.yml down
+
+services:
+  serve_0:
+    build:
+      context: ../..
+      dockerfile: docker/serve/Dockerfile.eval_dp4
+    image: qwen3-tom-serve-eval-dp4:latest
+    working_dir: /workspace
+    network_mode: host
+    volumes:
+      - ${TRAIN_OUTPUT_DIR:-/data_nvme/grj-projects/tom-output}:/mnt/output:ro
+    environment:
+      INSTANCE_IDX: 0
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: /mnt/output/qwen3-14B-tombench-rlvr-stage19-1x8-hf-ckpt120
+      SERVED_NAME: qwen3-14b-stage19-ckpt120
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-8192}
+      TENSOR_PARALLEL: 2
+      GPU_UTIL: 0.85
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0", "1"]
+              capabilities: [gpu]
+    ipc: host
+    shm_size: 16gb
+    restart: unless-stopped
+
+  serve_1:
+    image: qwen3-tom-serve-eval-dp4:latest
+    working_dir: /workspace
+    network_mode: host
+    volumes:
+      - ${TRAIN_OUTPUT_DIR:-/data_nvme/grj-projects/tom-output}:/mnt/output:ro
+    environment:
+      INSTANCE_IDX: 1
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: /mnt/output/qwen3-14B-tombench-rlvr-stage19-1x8-hf-ckpt120
+      SERVED_NAME: qwen3-14b-stage19-ckpt120
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-8192}
+      TENSOR_PARALLEL: 2
+      GPU_UTIL: 0.85
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["2", "3"]
+              capabilities: [gpu]
+    ipc: host
+    shm_size: 16gb
+    restart: unless-stopped
+    depends_on:
+      - serve_0
+
+  serve_2:
+    image: qwen3-tom-serve-eval-dp4:latest
+    working_dir: /workspace
+    network_mode: host
+    volumes:
+      - ${TRAIN_OUTPUT_DIR:-/data_nvme/grj-projects/tom-output}:/mnt/output:ro
+    environment:
+      INSTANCE_IDX: 2
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: /mnt/output/qwen3-14B-tombench-rlvr-stage19-1x8-hf-ckpt120
+      SERVED_NAME: qwen3-14b-stage19-ckpt120
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-8192}
+      TENSOR_PARALLEL: 2
+      GPU_UTIL: 0.85
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["4", "5"]
+              capabilities: [gpu]
+    ipc: host
+    shm_size: 16gb
+    restart: unless-stopped
+    depends_on:
+      - serve_0
+
+  serve_3:
+    image: qwen3-tom-serve-eval-dp4:latest
+    working_dir: /workspace
+    network_mode: host
+    volumes:
+      - ${TRAIN_OUTPUT_DIR:-/data_nvme/grj-projects/tom-output}:/mnt/output:ro
+    environment:
+      INSTANCE_IDX: 3
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: /mnt/output/qwen3-14B-tombench-rlvr-stage19-1x8-hf-ckpt120
+      SERVED_NAME: qwen3-14b-stage19-ckpt120
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-8192}
+      TENSOR_PARALLEL: 2
+      GPU_UTIL: 0.85
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["6", "7"]
+              capabilities: [gpu]
+    ipc: host
+    shm_size: 16gb
+    restart: unless-stopped
+    depends_on:
+      - serve_0

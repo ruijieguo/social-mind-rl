@@ -39,7 +39,7 @@ checkpoint_config:
   output_dir: /mnt/output/${exp_name}
 
 track_with: stdout
-tracker_kwargs:
+tracker_kwargs: {}
 
 num_gpus_per_node: 8
 
@@ -155,7 +155,7 @@ actor_infer:
   strategy_args:
     strategy_name: vllm
     strategy_config:
-      gpu_memory_utilization: 0.45
+      gpu_memory_utilization: 0.40
       block_size: 16
       max_model_len: 2304
       tensor_parallel_size: 2
