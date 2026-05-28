@@ -102,11 +102,21 @@ def evaluate_one(
     cache_dir: Path,
     model_id_for_cache: str,
     del_tom_n: int = 8,
+    is_qwen: bool = False,
 ) -> dict:
     qid = record["question_id"]
     language = record["language"]
     gold = record["gold"]
     task = record["task"]
+
+    # Unified v2 protocol (2026-05-28):
+    #   direct = strictly no thinking on both sides; max_tokens=64 fits \boxed{X}
+    #     - Qwen3:    enable_thinking=False (chat_template_kwargs)
+    #     - DeepSeek: thinking.type=disabled
+    #   cot/del_tom = thinking ON; max_tokens=8192 to never truncate.
+    extra_no_think_qwen = {"chat_template_kwargs": {"enable_thinking": False}}
+    extra_no_think_ds = {"thinking": {"type": "disabled"}}
+    extra_override: Optional[dict] = None
 
     if protocol == "direct":
         messages = build_direct_messages(
@@ -115,7 +125,8 @@ def evaluate_one(
             opt_c=record["opt_c"], opt_d=record["opt_d"],
             language=language,
         )
-        sample_params = dict(temperature=0.0, top_p=1.0, max_tokens=2048)
+        sample_params = dict(temperature=0.0, top_p=1.0, max_tokens=64)
+        extra_override = extra_no_think_qwen if is_qwen else extra_no_think_ds
         n_samples = 1
     elif protocol == "cot":
         messages = build_cot_messages(
@@ -124,7 +135,7 @@ def evaluate_one(
             opt_c=record["opt_c"], opt_d=record["opt_d"],
             language=language,
         )
-        sample_params = dict(temperature=0.6, top_p=0.9, max_tokens=1024)
+        sample_params = dict(temperature=0.0, top_p=1.0, max_tokens=4096)
         n_samples = 1
     elif protocol == "del_tom":
         messages = build_cot_messages(
@@ -133,7 +144,7 @@ def evaluate_one(
             opt_c=record["opt_c"], opt_d=record["opt_d"],
             language=language,
         )
-        sample_params = dict(temperature=0.7, top_p=0.95, max_tokens=1024)
+        sample_params = dict(temperature=0.7, top_p=0.95, max_tokens=4096)
         n_samples = del_tom_n
     else:
         raise ValueError(f"unknown protocol: {protocol}")
@@ -146,7 +157,7 @@ def evaluate_one(
         if cached is not None:
             content = cached["content"]
         else:
-            res: ChatResult = client.chat(messages, **sample_params)
+            res: ChatResult = client.chat(messages, extra_body_override=extra_override, **sample_params)
             content = res.content
             _save_cached(cache_p, {
                 "qid": qid, "protocol": protocol, "sample_idx": sample_idx,
@@ -250,6 +261,7 @@ def _run_single(args, client: ChatClient, cache_id: str):
 
     protocols = [s.strip() for s in args.protocols.split(",") if s.strip()]
     all_results: list[dict] = []
+    is_qwen = args.model.startswith(("eval-target-", "eval-")) or "qwen" in args.model.lower()
     for protocol in protocols:
         print(f"=== {cache_id} :: {protocol} :: {len(records)} questions ===")
         with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
@@ -257,7 +269,8 @@ def _run_single(args, client: ChatClient, cache_id: str):
                 ex.submit(evaluate_one,
                           client=client, record=r, protocol=protocol,
                           cache_dir=cache_dir, model_id_for_cache=cache_id,
-                          del_tom_n=args.del_tom_n)
+                          del_tom_n=args.del_tom_n,
+                          is_qwen=is_qwen)
                 for r in records
             ]
             for f in tqdm(as_completed(futures), total=len(futures), desc=protocol):
@@ -302,6 +315,7 @@ def _run_baseline_all(args):
         if args.limit:
             records = records[: args.limit]
 
+        is_qwen_preset = args.model.startswith(("eval-target-", "eval-")) or "qwen" in args.model.lower()
         for protocol in args.protocols.split(","):
             protocol = protocol.strip()
             print(f"=== {cache_id} :: {protocol} :: {len(records)} questions ===")
@@ -310,7 +324,8 @@ def _run_baseline_all(args):
                     ex.submit(evaluate_one,
                               client=client, record=r, protocol=protocol,
                               cache_dir=Path(args.cache_dir),
-                              model_id_for_cache=cache_id)
+                              model_id_for_cache=cache_id,
+                              is_qwen=is_qwen_preset)
                     for r in records
                 ]
                 for f in tqdm(as_completed(futures), total=len(futures), desc=f"{cache_id}/{protocol}"):

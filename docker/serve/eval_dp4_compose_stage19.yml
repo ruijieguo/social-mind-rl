@@ -8,7 +8,7 @@
 #   serve_2  GPU 4,5  port 8003
 #   serve_3  GPU 6,7  port 8004
 #
-# All four serve v3.5 ckpt-120 weights at:
+# All four serve v3.5 ckpt-79 weights at:
 #   /mnt/output/qwen3-14B-tombench-rlvr-stage19-1x8-hf-ckpt120
 # bf16, max_model_len 8192.
 #

@@ -94,18 +94,21 @@ def evaluate_one(client: ChatClient, record: dict, protocol: str,
     n_options = len(record["options"])
     extract_direct, extract_cot, vote_del_tom = make_extractors(n_options)
 
-    # For Qwen3 with default thinking, "direct" must disable thinking or the
-    # response gets truncated within max_tokens=64. cot/del_tom benefit from
-    # thinking. DeepSeek puts thinking in reasoning_content (separate field),
-    # so its content stays short, but we still allocate enough max_tokens.
+    # Unified v2 protocol (2026-05-28): direct = strictly no thinking on
+    # both sides, so the protocol is comparable across self-served Qwen and
+    # DeepSeek API. cot/del_tom keep thinking ON.
+    #   Qwen3: enable_thinking=False (chat_template_kwargs) + max_tokens=64
+    #   DeepSeek: thinking.type=disabled + max_tokens=64
+    # Both produce a clean \boxed{X} that fits in <16 tokens.
     extra_no_think_qwen = {"chat_template_kwargs": {"enable_thinking": False}}
+    extra_no_think_ds = {"thinking": {"type": "disabled"}}
     is_qwen = model.startswith(("eval-target-", "eval-")) or "qwen" in model.lower()
 
-    # Hi-ToM has very long stories (5+ characters tracking 5 belief orders).
-    # DeepSeek's reasoning_content can blow through 2048 tokens easily.
-    # Use 8192 for cot/del_tom on non-Qwen reasoning models so the boxed
-    # answer always fits.
-    big_tokens = 4096 if is_qwen else 8192
+    # cot/del_tom keep thinking ON; allocate enough budget for either
+    # Qwen <think>...</think> in content, or DeepSeek reasoning_content.
+    # Capped at 4096 to fit within vLLM's typical max_model_len=8192
+    # (input prompts up to ~3500 tokens for Hi-ToM long stories).
+    big_tokens = 4096
 
     if protocol == "del_tom":
         msgs = build_messages(record, "cot")
@@ -117,17 +120,10 @@ def evaluate_one(client: ChatClient, record: dict, protocol: str,
         sample_params = dict(temperature=0.0, top_p=1.0, max_tokens=big_tokens)
         n_samples = 1
         extra = None
-    else:  # direct
+    else:  # direct (strictly no thinking, both sides)
         msgs = build_messages(record, "direct")
-        if is_qwen:
-            # Qwen3: disable thinking, can use small max_tokens
-            sample_params = dict(temperature=0.0, top_p=1.0, max_tokens=64)
-            extra = extra_no_think_qwen
-        else:
-            # DeepSeek and other reasoning models: thinking flows through content,
-            # need full max_tokens budget so the boxed answer isn't truncated.
-            sample_params = dict(temperature=0.0, top_p=1.0, max_tokens=big_tokens)
-            extra = None
+        sample_params = dict(temperature=0.0, top_p=1.0, max_tokens=64)
+        extra = extra_no_think_qwen if is_qwen else extra_no_think_ds
         n_samples = 1
 
     answers: list[Optional[str]] = []
