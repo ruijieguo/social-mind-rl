@@ -1,0 +1,20 @@
+Emotion identification reference — distinguish similar emotions in Chinese contexts:
+
+1. 内疚 (guilt) — focuses on a specific action one did/failed to do; trigger: hurting someone unintentionally
+2. 羞愧 (shame) — focuses on the self as fundamentally flawed; trigger: public exposure of a perceived deficiency
+3. 委屈 (grievance / wronged) — feeling treated unfairly without recourse; trigger: blame for something not one's fault
+4. 沮丧 (frustration / dejection) — energy drained by repeated obstacles; trigger: persistent failure despite effort
+5. 失望 (disappointment) — gap between expectation and reality; trigger: someone or outcome not meeting hopes
+6. 嫉妒 (jealousy / envy) — pain at another's success or possession; trigger: comparison with peers
+7. 焦虑 (anxiety) — anticipatory worry about uncontrolled future; trigger: looming uncertain event
+8. 担忧 (worry / concern) — focused care for specific person/issue; trigger: someone close in difficulty
+9. 愤怒 (anger) — outward blame, energizing; trigger: blocked goal or violation of norm
+10. 厌恶 (disgust / revulsion) — withdrawal from contaminated/morally violating stimulus; trigger: betrayal or filth
+11. 自豪 (pride) — positive self-evaluation after achievement; trigger: completed challenging goal
+12. 感激 (gratitude) — recognition of benefit received from another; trigger: kindness or help
+
+Belief / theory-of-mind reasoning shortcuts:
+- 一阶信念 (1st-order): A 知道 X. Track what each character has DIRECTLY observed.
+- 二阶信念 (2nd-order): A 认为 B 知道 X. Track who-knows-what-about-whose-knowledge.
+- 错误信念 (false belief): character holds a belief that doesn't match reality, because they missed an event.
+- 知识与无知 (knowledge / ignorance): if a character left the room, they cannot know events that happened after.

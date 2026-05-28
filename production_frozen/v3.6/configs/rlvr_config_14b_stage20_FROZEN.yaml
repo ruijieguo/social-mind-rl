@@ -1,0 +1,199 @@
+# Stage-20 (1×8 H800, Qwen3-14B): v3.6 = precision-fix distillation v3
+#
+# Init: Stage 19 ckpt-120 HF (v3.5 best, frozen production_frozen/v3.5)
+# Data: tom_train_stage20.jsonl (~19850):
+#   - tom_train_stage19 backbone (19236, v3.5)
+#   - distill_v3 records (precision-targeted from v3.5 errors):
+#     * Hi-ToM: order_low_only paraphrase + skip pre-verify on order_2/3/4 (preserves long-chain originals), ~150-200 retained
+#     * EmoBench EU_emotion: delta-style solve (distractor elimination) + ×2 paraphrase + vote≥3, ~150-250 retained
+#     * ToMBench Knowledge: paraphrase + vote≥2 + ontology, ~150-200 retained
+#
+# Why this stage exists:
+#   v3.5 12-cell delta vs v3.4: +5.46pp total, but Hi-ToM cot regression -1.16pp (paraphrase broke long-chain cross-references).
+#   v3.6 precision plan rejects SFT cold-start. Three surgical attack points based on v3.5 failure analysis:
+#     1. Hi-ToM order_2/3/4: preserve original story (no paraphrase), skip pre-verify (keep hard records)
+#     2. EmoBench EU_emotion: delta-style reasoning forces distractor elimination (closes 6-opt naming gap)
+#     3. ToMBench Knowledge: paraphrase + ontology (Knowledge sub-task is hardest at 0.545 in v3.5 del_tom)
+#
+# Differences vs Stage 19:
+#   - pretrain: v3.5 ckpt-120 (NOT v3.3) — finetune from current best
+#   - distillation: v3 precision (no pre-verify on hard records, delta solve, voting)
+#   - max_steps: 80 (NOT 150) — 50% finetune from frozen 90%-trained ckpt; early-stop on regression
+#   - lr: 5e-7 (NOT 2e-7) — slightly higher for precision-distill data assimilation
+#   - kl_coef: 0.005 default (held in reward worker, not config) — slight regularization
+#
+# Early-stop criterion:
+#   At step 30, if Hi-ToM val_acc ≤ 0.730 (v3.5 baseline ≈ 0.755), TERMINATE training.
+#   Root-cause analysis required, redesign distill data, restart from v3.5 ckpt-120.
+#
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+exp_name: "qwen3-14B-tombench-rlvr-stage20-1x8"
+seed: 42
+logging_dir: ./output/logs
+output_dir: ./output
+system_envs:
+  USE_MODELSCOPE: '1'
+
+checkpoint_config:
+  type: file_system
+  output_dir: /mnt/output/${exp_name}
+
+track_with: stdout
+tracker_kwargs: {}
+
+num_gpus_per_node: 8
+
+max_steps: 80
+save_steps: 10
+logging_steps: 1
+eval_steps: 10
+resume_from_checkpoint: false
+
+rollout_batch_size: 32
+prompt_length: 1024
+response_length: 512
+
+num_return_sequences_in_group: 8
+ppo_epochs: 1
+adv_estimator: "grpo"
+
+use_pg_clip_range: true
+pg_clip_low: 0.20
+pg_clip_high: 0.28
+dual_clip_loss: true
+
+value_clip: 0.5
+reward_clip: 5
+advantage_clip: 2.0
+
+norm_mean_type: ~
+norm_std_type: ~
+
+max_len_mask: true
+difficulty_mask: true
+difficulty_low_threshold: 0.05
+difficulty_high_threshold: 0.85
+error_max_len_clip: false
+
+difficulty_loss_weight: false
+length_loss_weight: false
+
+add_token_level_kl: false
+
+whiten_advantages: true
+
+use_additional_prompts: true
+max_running_requests: 128
+is_num_return_sequences_expand: false
+
+# Init from Stage 19 ckpt-120 (v3.5 production_frozen)
+pretrain: /mnt/output/qwen3-14B-tombench-rlvr-stage19-1x8-hf-ckpt120
+reward_pretrain: /mnt/output/qwen3-14B-tombench-rlvr-stage19-1x8-hf-ckpt120
+
+validation:
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tombench_eval_subset500.jsonl
+      - /mnt/data/hitom_eval_val200.jsonl
+      - /mnt/data/emobench_eu_emotion_val100.jsonl
+  generating_args:
+    max_new_tokens: 256
+    top_p: 1.0
+    top_k: -1
+    num_beams: 1
+    temperature: 0.0
+    num_return_sequences: 1
+
+actor_train:
+  model_args:
+    disable_gradient_checkpointing: false
+    dtype: bf16
+    model_type: ~
+  training_args:
+    learning_rate: 5.0e-7
+    weight_decay: 0
+    per_device_train_batch_size: 1
+    gradient_accumulation_steps: 32
+    warmup_steps: 10
+    num_train_epochs: 50
+  data_args:
+    template: qwen3
+    file_name:
+      - /mnt/data/tom_train_stage20.jsonl
+    domain_interleave_probs:
+      tom_mcq: 1.0
+    dataset_dir: /mnt/data
+    messages: messages
+    interleave_probs: "1.0"
+    preprocessing_num_workers: 16
+  strategy_args:
+    strategy_name: megatron_train
+    strategy_config:
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+      use_distributed_optimizer: true
+      distrib_optim_fully_reshardable_mem_efficient: true
+      recompute_granularity: full
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+actor_infer:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+  generating_args:
+    max_new_tokens: ${response_length}
+    top_p: 0.95
+    top_k: 50
+    num_beams: 1
+    temperature: 0.99
+    num_return_sequences: ${num_return_sequences_in_group}
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: vllm
+    strategy_config:
+      gpu_memory_utilization: 0.40
+      block_size: 16
+      max_model_len: 2304
+      tensor_parallel_size: 2
+  device_mapping: list(range(0,8))
+  infer_batch_size: 1
+
+reference:
+  model_args:
+    disable_gradient_checkpointing: true
+    dtype: bf16
+    model_type: ~
+  data_args:
+    template: qwen3
+  strategy_args:
+    strategy_name: megatron_infer
+    strategy_config:
+      tensor_model_parallel_size: 2
+      pipeline_model_parallel_size: 1
+      expert_model_parallel_size: 1
+  device_mapping: list(range(0,8))
+  infer_batch_size: 4
+
+rewards:
+  tom_mcq:
+    worker_cls: roll.pipeline.rlvr.rewards.tom_mcq_reward_worker.TomMcqRewardWorker
+    tag_included: [tom_mcq]
+    model_args:
+      model_name_or_path: ${reward_pretrain}
+    data_args:
+      template: qwen3
+    world_size: 8
+    infer_batch_size: 16
+    l_min: 8
+    l_max: 128
+    l_max_long: 512
+    l_max_short: 64
+    k: 50
