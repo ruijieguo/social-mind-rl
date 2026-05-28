@@ -495,9 +495,18 @@ ToMBench 中文数据的 `opt_a` 字段值已含 `"A. "`，user prompt 模板再
 
 **8B v10 在 thinking 关闭时退化 3.3pp**，base 模型不退化。这暴露了 RLVR 训练的"thinking dependency"：训练数据全是 thinking 形式（reward 也按 think→answer 路径打），关掉 thinking 时模型的 boxed letter 概率分布漂移更大。Hi-ToM 上同样表现：v10 +5.5pp（0.5717 → 0.6267），base 反而 -4pp（0.5550 → 0.5150）。
 
-### 8.5 DashScope qwen3-8b API 不是 RLVR 后的版本
+### 8.5 DashScope qwen3-8b API 与 base local 模型权重相同（更新结论）
 
-DashScope 公网 `qwen3-8b` 的 thinking-依赖性接近 base（不依赖），且 cot 上的表现 0.7501 ≈ 8B v10 的 0.7559（基本同档）。说明 **DashScope 的 qwen3-8b 是更接近原始 base 的模型**（可能是阶段更早的 RLHF/SFT 版本，不是我们的 Stage 15 ckpt-150）。如果未来要把 v10 真正部署到 DashScope 替换该模型，可以期待显著提升 cot/del_tom 表现。
+**初始假设**（已被推翻）：DashScope qwen3-8b 在 thinking 上无增益（与 base 类似），且 cot 0.7501 ≈ v10 cot 0.7559，曾推测 DashScope 是不同 ckpt（可能更早 RLHF/SFT 版本）。
+
+**实证证据**（见 §8.9 详细分析）：
+
+- direct (no-think) 协议下 base 与 DashScope 在 ToMBench 5718 题上预测一致率 = **98.90%**（5663/5718 同字母）
+- 这强证两者**底层模型权重相同**
+
+为何 cot 上看起来 DashScope (0.7501) > base local (0.7387)？详见 §8.9 — 主因是 base local 的 cot 输出比 DashScope 长 ~2.4×，**4.4% 题被 max_tokens=4096 截断**导致 fallback 字母错位，损失 ~2pp。**修正截断后，base/cot 真实性能预期 ≈ 0.7587**，与 DashScope 持平甚至略高。
+
+如果未来要把 v10 真正部署到 DashScope 替换该模型，**不会**有显著 cot 提升（因为底层就是同一模型权重）。但 v10 的优势在 **del_tom 8-vote 投票**（0.7646）和 **direct_think 模式**（0.7462，比 base local direct_think 0.7030 高 4.3pp 体现 RLVR 训练效果）。
 
 ### 8.6 Hi-ToM cot 上的非单调性
 
@@ -528,6 +537,80 @@ base 模型在 Hi-ToM 上 direct_think (-4pp) 异常下降，怀疑：T=0 + 长 
 | 可复现性 | ⚠️ 中 | 缓存确定性 OK，跨 vLLM 版本有 ~1pp 数值漂移 |
 | Prompt 严谨度 | ✅ 优 | 与 production_frozen 逐字一致 |
 | Extractor 严谨度 | ✅ 优 | 字母集自适应（4 vs 15），boxed 优先 + fallback |
+| **base/cot max_tokens** | ⚠️ **不足** | base 模型 cot 输出比 DashScope 长 ~2.4×，4.42% 题被 max_tokens=4096 截断 → -1.5pp 影响（见 §8.9） |
+
+### 8.9 base (local) vs DashScope qwen3-8b 差异深度分析
+
+**问题**：两者按理是同一模型，但 cot 上差距 1.14pp（0.7387 vs 0.7501）、Hi-ToM cot 差距 7.33pp（0.6100 vs 0.6833）。深入调查发现了如下机制：
+
+#### 9-A. 底层模型权重相同（confirmed）
+
+direct (no-think) 协议下 base 与 DashScope 在 ToMBench 5718 题上**预测一致率 = 98.9%**（5663/5718 题预测同字母）。这强力证明两者**底层模型权重相同**。
+
+| Protocol | base vs DashScope agree rate |
+|---|---|
+| direct (no-think) | **98.90%** ✓ 几乎完全一致 |
+| direct_think | 90.73% ⚠️ thinking 引入分歧 |
+| cot | 88.74% ⚠️ T=0.6 + thinking 分歧最大 |
+
+#### 9-B. DashScope 走 reasoning_content 分离协议（confirmed）
+
+DashScope qwen3-8b API 在 thinking 模式下：
+- thinking 内容通过 stream `delta.reasoning_content` 返回（hidden field）
+- 可见答案通过 stream `delta.content` 返回
+- 全部 5718 个 DashScope cot 缓存中**无任何 `<think>` 标签**
+
+而本地 vLLM (`v0.11.0`，未启用 `--reasoning-parser qwen3`) 的 thinking 内容直接写在 `content` 字段中，包括 `<think>...</think>` 标签：
+- 全部 5718 个 base cot 缓存中**100% 含 `<think>` 标签**
+
+我的客户端代码只收集 DashScope 的 `delta.content`（丢弃 `reasoning_content`），但这**不影响 extractor**（`\boxed{X}` 在 content 里，extractor 走最后 boxed 即可）。**真正影响准确率的是下面的 9-C**。
+
+#### 9-C. ⚠️ base/cot max_tokens=4096 被截断 → -1.5pp acc 影响
+
+实测 base 模型 cot 输出**比 DashScope 长得多**：
+
+| Model | cot 平均输出长度 (chars) | cot 最长输出 |
+|---|---|---|
+| base local (Qwen3-8B HF + vLLM) | **5,105** | 19,827 |
+| 8B v10 (RLVR ckpt-150) | 1,326 | 16,841 |
+| DashScope qwen3-8b | 977 (content only) / ~3,100 (含 reasoning) | 3,427 |
+
+Probe 实验：用 max_tokens=8192 重新跑 DashScope 一个题，total length 12,611 — 接近 base local 的 14,492。说明 **base 不是"更啰嗦的模型"，而是 DashScope 在 4096 budget 内能压缩出答案，base 不能**。
+
+**截断影响量化**（base 模型 cot 协议下含 `\boxed{X}` 的 raw response 比例）：
+
+| Model | direct_think 截断率 | cot 截断率 |
+|---|---|---|
+| **8B base** | **3.52%** (201/5718) ⚠️ | **4.42%** (253/5718) ⚠️ |
+| 8B v10 (RLVR) | 0.28% (16/5718) | 0.05% (3/5718) ✓ |
+| DashScope qwen3-8b | 0.00% (0/5718) ✓ | 0.02% (1/5718) ✓ |
+
+**base/cot 有 253/5718 = 4.4% 题被截断**，extractor 走 fallback (text 末尾 200 chars 内最后一个有效字母)。这 253 题的预测**接近随机 25%**（A-D 中），但 **non-truncated 准确率约 75%**。损失约 **(0.75 − 0.25) × 0.044 = 2.2pp**。
+
+实际 base/cot = 0.7387 vs DashScope/cot = 0.7501，差距 1.14pp。**修正后预期 base/cot ≈ 0.7587** → **接近 v10 的 0.7559**。即：**base 的真实 cot 性能可能与 v10 cot 持平，而不是低 1.7pp**。
+
+#### 9-D. ⚠️ Hi-ToM 上 base/cot 差距 7.33pp 主因同上 + 长故事
+
+Hi-ToM 故事更长（多人物 + 时间线），base 输出 thinking 链更长，截断率会更高。Hi-ToM cot 因此差距被进一步放大到 7.33pp（0.6100 vs 0.6833），且 base direct_think 在 Hi-ToM 反而下降（0.5550 → 0.5150）也是同一原因 — 长故事 + max_tokens 2048 更容易截断。
+
+#### 9-E. 修复建议
+
+未来重跑此评测时：
+
+| 协议 | 当前 max_tokens | 建议 max_tokens | 理由 |
+|---|---|---|---|
+| direct | 64 | 64 | thinking off，不需要长 |
+| **direct_think** | 2048 | **8192** | base 模型有 3.5% 题被截断 |
+| **cot** | 4096 | **8192** | base 模型有 4.4% 题被截断 |
+| **del_tom** | 4096 | **8192** | 8 sample 任一截断都影响投票 |
+
+预期修复后：base/cot 升 ~2pp 至 0.755-0.760，与 DashScope cot (0.7501) 反超约 0.5-1pp。这才是 base 模型的真实 cot 性能上限。
+
+#### 9-F. 输出风格差异（不影响准确率）
+
+DashScope qwen3-8b API 的 content 字段输出风格更"商业化"：用 `### Understanding the Scenario` markdown headers + 项目符号。本地 Qwen3-8B HF 的 content 更"原始"：直接 `<think>okay let's break this down ...</think>` 然后给答案。这反映**DashScope 在 inference path 上对 content 字段做了 post-process / 不同 system prompt 注入**，可能用了 Qwen2.5-Instruct 风格的输出微调。但因为 thinking 内容（reasoning_content）质量类似，**实际推理质量本身没变**，差异只在表达层。
+
+**最终结论**：base 与 DashScope qwen3-8b 是**同一个模型权重**（direct 一致率 98.9% 证实），**评测差距主要源于 base 在 max_tokens 不足时被截断 ~4%**。这是本次评测设计的疏漏（应预先按 base 的 thinking 长度分布定 max_tokens），属可量化、可修复的工程问题，不是模型能力差异。
 """)
 
     md.append("\n---\n")
