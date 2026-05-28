@@ -127,7 +127,14 @@ def chat_once(
     is_dashscope: bool,
     max_retries: int = 3,
 ) -> str:
-    """Call /chat/completions and return content. Handles DashScope thinking-stream req."""
+    """Call /chat/completions and return content. Handles DashScope thinking-stream req.
+
+    For DashScope thinking mode (stream): reasoning_content is the hidden CoT,
+    content is the visible answer. We wrap reasoning into <think>...</think>
+    and prepend to content so the cache files for DashScope thinking responses
+    match the local-vLLM format (which puts the entire <think>...</think>\\nanswer
+    in `content`). This makes extractor & audit behave identically.
+    """
     # DashScope OpenAI-compat endpoint uses top-level `enable_thinking`,
     # NOT chat_template_kwargs (which is the local-vLLM convention).
     if is_dashscope:
@@ -147,14 +154,25 @@ def chat_once(
                     extra_body=extra_body,
                     stream=True,
                 )
-                chunks: list[str] = []
+                content_chunks: list[str] = []
+                reasoning_chunks: list[str] = []
                 for ev in stream:
                     if not ev.choices:
                         continue
-                    piece = getattr(ev.choices[0].delta, "content", None) or ""
-                    if piece:
-                        chunks.append(piece)
-                return "".join(chunks)
+                    delta = ev.choices[0].delta
+                    c = getattr(delta, "content", None) or ""
+                    r = getattr(delta, "reasoning_content", None) or ""
+                    if c:
+                        content_chunks.append(c)
+                    if r:
+                        reasoning_chunks.append(r)
+                content = "".join(content_chunks)
+                reasoning = "".join(reasoning_chunks)
+                # If we got reasoning back, wrap it in <think>...</think>
+                # and prepend so format matches local-vLLM.
+                if reasoning:
+                    return f"<think>\n{reasoning}\n</think>\n\n{content}"
+                return content
             else:
                 resp = client.chat.completions.create(
                     model=model,

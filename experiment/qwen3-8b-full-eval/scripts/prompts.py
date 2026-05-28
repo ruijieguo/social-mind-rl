@@ -4,10 +4,11 @@ Copied (not imported) from scripts/eval/run_tombench.py, run_generic_mcq.py,
 extractors.py, extractors_generic.py to keep this experiment self-contained
 and avoid touching project-wide eval code.
 
-Sampling params reflect the user's 2026-05-28 request:
-  direct  : T=0.0, max_tokens=64,   thinking=false, n=1
-  cot     : T=0.6, max_tokens=4096, thinking=true,  n=1
-  del_tom : T=0.7, max_tokens=4096, thinking=true,  n=8 (majority vote)
+Sampling params (2026-05-28 v2 — fixes max_tokens truncation found in v1):
+  direct        : T=0.0, max_tokens=64,    thinking=false, n=1
+  direct_think  : T=0.0, max_tokens=8192,  thinking=true,  n=1   (was 2048)
+  cot           : T=0.6, max_tokens=8192,  thinking=true,  n=1   (was 4096)
+  del_tom       : skipped this round
 """
 from __future__ import annotations
 
@@ -35,6 +36,21 @@ SYSTEM_PROMPT_COT_TOMBENCH = (
 )
 
 
+_LETTER_PREFIX_PATTERN = re.compile(r"^\s*([A-D])[.．、:：]\s*", re.IGNORECASE)
+
+
+def _strip_letter_prefix(opt: str) -> str:
+    """Remove a leading 'A.' / 'A、' / 'A:' prefix that the dataset has baked into
+    `opt_a/b/c/d` for ZH ToMBench records. EN records don't have it; ZH ones do.
+    Calling this unconditionally is safe for EN (no match → no change)."""
+    if opt is None:
+        return ""
+    m = _LETTER_PREFIX_PATTERN.match(opt)
+    if m:
+        return opt[m.end():]
+    return opt
+
+
 def _user_prompt_tombench_en(*, story, question, opt_a, opt_b, opt_c, opt_d) -> str:
     return (
         f"Story:\n{story}\n\n"
@@ -53,10 +69,14 @@ def _user_prompt_tombench_zh(*, story, question, opt_a, opt_b, opt_c, opt_d) -> 
 
 def build_messages_tombench(record: dict, *, protocol: str) -> list[dict]:
     builder = _user_prompt_tombench_zh if record.get("language") == "zh" else _user_prompt_tombench_en
+    # Strip baked-in 'A./B./C./D.' prefix from ZH options before formatting
+    # (no-op for EN options that don't carry such a prefix).
     user = builder(
         story=record["story"], question=record["question"],
-        opt_a=record["opt_a"], opt_b=record["opt_b"],
-        opt_c=record["opt_c"], opt_d=record["opt_d"],
+        opt_a=_strip_letter_prefix(record["opt_a"]),
+        opt_b=_strip_letter_prefix(record["opt_b"]),
+        opt_c=_strip_letter_prefix(record["opt_c"]),
+        opt_d=_strip_letter_prefix(record["opt_d"]),
     )
     # direct and direct_think both use the historical SYSTEM_PROMPT_DIRECT;
     # cot/del_tom use SYSTEM_PROMPT_COT.
@@ -157,12 +177,16 @@ EXTRACT_HITOM_18 = make_extractors(18)  # A-R
 
 
 # ---------------------------------------------------------------------------
-# Sampling parameters per protocol (user-specified 2026-05-28)
+# Sampling parameters per protocol (2026-05-28 v2)
+#
+# v1 had a max_tokens=4096 limit that truncated 4.42% of base/cot responses
+# (without producing \boxed{X}), causing extractor fallback and ~2pp acc loss.
+# v2 raises max_tokens to 8192 for all thinking-on protocols.
 #
 # direct_think is the historical-style direct (matches production_frozen/8b/v1.0
-# 0.7450 setting): same SYSTEM_PROMPT_DIRECT, but thinking left at default-true
-# and max_tokens 2048. Model usually ignores "output ONLY" and produces
-# <think>...</think>\boxed{X}, so we use the cot-style extractor (last \boxed).
+# 0.7450 setting): same SYSTEM_PROMPT_DIRECT, but thinking left at default-true.
+# Model usually ignores "output ONLY" and produces <think>...</think>\boxed{X},
+# so we use the cot-style extractor (last \boxed).
 # ---------------------------------------------------------------------------
 
 def sampling_params_for(protocol: str, n_samples_default: int = 8) -> dict:
@@ -170,12 +194,12 @@ def sampling_params_for(protocol: str, n_samples_default: int = 8) -> dict:
         return dict(temperature=0.0, top_p=1.0, max_tokens=64,
                     n_samples=1, enable_thinking=False)
     if protocol == "direct_think":
-        return dict(temperature=0.0, top_p=1.0, max_tokens=2048,
+        return dict(temperature=0.0, top_p=1.0, max_tokens=8192,
                     n_samples=1, enable_thinking=True)
     if protocol == "cot":
-        return dict(temperature=0.6, top_p=0.95, max_tokens=4096,
+        return dict(temperature=0.6, top_p=0.95, max_tokens=8192,
                     n_samples=1, enable_thinking=True)
     if protocol == "del_tom":
-        return dict(temperature=0.7, top_p=0.95, max_tokens=4096,
+        return dict(temperature=0.7, top_p=0.95, max_tokens=8192,
                     n_samples=n_samples_default, enable_thinking=True)
     raise ValueError(f"unknown protocol: {protocol}")

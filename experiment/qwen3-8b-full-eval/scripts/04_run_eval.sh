@@ -21,14 +21,18 @@ fi
 
 OUT_DIR="$EXP_ROOT/output"
 LOG_DIR="$EXP_ROOT/logs"
-CACHE_DIR="$OUT_DIR/cache"
+# v2 cache: separate from v1 to avoid collisions with the old (max_tokens=4096,
+# ZH prefix bug, no reasoning_content collection) responses. Caller can override
+# with CACHE_SUFFIX="" to reuse v1 cache when fixes don't apply.
+CACHE_SUFFIX="${CACHE_SUFFIX:-_v2}"
+CACHE_DIR="$OUT_DIR/cache${CACHE_SUFFIX}"
 mkdir -p "$OUT_DIR/tombench" "$OUT_DIR/hitom" "$LOG_DIR" "$CACHE_DIR"
 
 # Container-side paths (everything inside /work because we mount EXP_ROOT to /work)
 OUT_DIR_C=/work/output
-CACHE_DIR_C=/work/output/cache
+CACHE_DIR_C="/work/output/cache${CACHE_SUFFIX}"
 
-PROTOCOLS="${PROTOCOLS:-direct,cot,del_tom}"
+PROTOCOLS="${PROTOCOLS:-direct,direct_think,cot}"
 LIMIT_FLAG=""
 if [[ -n "${LIMIT:-}" ]]; then
   LIMIT_FLAG="--limit $LIMIT"
@@ -108,19 +112,23 @@ run_set() {
 LOCAL_ONLY="${LOCAL_ONLY:-0}"
 DS_ONLY="${DS_ONLY:-0}"
 
+# Output suffix: v2 results go to base_v2.json / v10_v2.json / dashscope_v2.json
+# so v1 results remain on disk for cross-version comparison.
+OUT_SUFFIX="${OUT_SUFFIX:-_v2}"
+
 if [[ "$DS_ONLY" != "1" ]]; then
   # ----- Local vLLM: base + v1.0 in parallel (independent GPUs) -----
-  run_set local "$BASE_MODEL_NAME" "qwen3-8b-base" tombench "$EVAL_TOMBENCH_C" "$OUT_DIR_C/tombench/base.json" "$BASE_EPS" 32 &
+  run_set local "$BASE_MODEL_NAME" "qwen3-8b-base" tombench "$EVAL_TOMBENCH_C" "$OUT_DIR_C/tombench/base${OUT_SUFFIX}.json" "$BASE_EPS" 32 &
   PID_BASE_TOM=$!
-  run_set local "$V10_MODEL_NAME"  "qwen3-8b-v10"  tombench "$EVAL_TOMBENCH_C" "$OUT_DIR_C/tombench/v10.json"  "$V10_EPS"  32 &
+  run_set local "$V10_MODEL_NAME"  "qwen3-8b-v10"  tombench "$EVAL_TOMBENCH_C" "$OUT_DIR_C/tombench/v10${OUT_SUFFIX}.json"  "$V10_EPS"  32 &
   PID_V10_TOM=$!
 
   wait $PID_BASE_TOM
   wait $PID_V10_TOM
 
-  run_set local "$BASE_MODEL_NAME" "qwen3-8b-base" hitom "$EVAL_HITOM_C" "$OUT_DIR_C/hitom/base.json" "$BASE_EPS" 32 &
+  run_set local "$BASE_MODEL_NAME" "qwen3-8b-base" hitom "$EVAL_HITOM_C" "$OUT_DIR_C/hitom/base${OUT_SUFFIX}.json" "$BASE_EPS" 32 &
   PID_BASE_HIT=$!
-  run_set local "$V10_MODEL_NAME"  "qwen3-8b-v10"  hitom "$EVAL_HITOM_C" "$OUT_DIR_C/hitom/v10.json"  "$V10_EPS"  32 &
+  run_set local "$V10_MODEL_NAME"  "qwen3-8b-v10"  hitom "$EVAL_HITOM_C" "$OUT_DIR_C/hitom/v10${OUT_SUFFIX}.json"  "$V10_EPS"  32 &
   PID_V10_HIT=$!
 
   wait $PID_BASE_HIT
@@ -130,8 +138,8 @@ fi
 if [[ "$LOCAL_ONLY" != "1" ]]; then
   # ----- DashScope: qwen3-8b API. -----
   DS_CONC="${DASHSCOPE_CONCURRENCY:-8}"
-  run_set dashscope "$DASHSCOPE_MODEL_NAME" "$DASHSCOPE_MODEL_ID" tombench "$EVAL_TOMBENCH_C" "$OUT_DIR_C/tombench/dashscope.json" "" "$DS_CONC"
-  run_set dashscope "$DASHSCOPE_MODEL_NAME" "$DASHSCOPE_MODEL_ID" hitom    "$EVAL_HITOM_C"    "$OUT_DIR_C/hitom/dashscope.json"    "" "$DS_CONC"
+  run_set dashscope "$DASHSCOPE_MODEL_NAME" "$DASHSCOPE_MODEL_ID" tombench "$EVAL_TOMBENCH_C" "$OUT_DIR_C/tombench/dashscope${OUT_SUFFIX}.json" "" "$DS_CONC"
+  run_set dashscope "$DASHSCOPE_MODEL_NAME" "$DASHSCOPE_MODEL_ID" hitom    "$EVAL_HITOM_C"    "$OUT_DIR_C/hitom/dashscope${OUT_SUFFIX}.json"    "" "$DS_CONC"
 fi
 
 echo ""
