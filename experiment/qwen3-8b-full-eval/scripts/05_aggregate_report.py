@@ -253,7 +253,7 @@ def main():
     md.append("")
     md.append("---\n")
     md.append("## 0. 主结果表（v2 修复后） vs v1 delta\n")
-    md.append("数字格式: `acc (Δ vs v1)`。`*(v1)*` 标记表示该 cell v2 评测尚未完成，使用 v1 旧结果占位。\n")
+    md.append("数字格式: `acc (Δ vs v1)`。\n")
     md.append(build_main_table(all_results, v1_results))
     md.append("")
 
@@ -274,13 +274,16 @@ v2 共做了 3 处影响数值的修复（编号对应 §11.x 详细说明）：
 | **base/Hi-ToM/cot**          | 0.6100 | **0.7133** | **+10.33pp** ⭐⭐ | F-1（base cot 输出最长 ~20k chars，v1 4096 不够） |
 | **base/ToMBench/direct_think** | 0.7030 | 0.7128 | +0.98pp | F-1（3.5% tombench 题被截断） |
 | **base/ToMBench/cot**         | 0.7387 | 0.7459 | +0.72pp | F-1（4.4% tombench 题被截断） |
+| **DashScope/Hi-ToM/cot**     | 0.6833 | 0.6883 | +0.50pp | F-2 + F-3 |
 | **DashScope/ToMBench/direct_think** | 0.7011 | 0.7055 | +0.44pp | F-2（ZH 前缀修复 → prompt 更干净） |
+| **DashScope/ToMBench/cot**   | 0.7501 | 0.7538 | +0.37pp | F-2 + F-3 |
 | v10/Hi-ToM/direct_think | 0.6267 | 0.6400 | +1.33pp | F-1 + F-2 |
 | 其他 cell | — | — | ±0.5pp 内 | 数值漂移 / 采样随机 |
 
 **关键变化**：
 - **base 模型在 Hi-ToM 上的真实能力被 v1 严重低估**（direct_think 0.5150→0.6567 提升 14.17pp）。修复后 **base/Hi-ToM/cot 0.7133 反超 v10 的 0.6867**（v10 thinking 更紧凑反而损失了一些，base 长链条 thinking 更适合 Hi-ToM 多人物时间线推理）。
-- **base/ToMBench/cot 0.7459 与 DashScope/cot 0.7501 几乎持平**（差 0.42pp），确认 §11.9 的诊断"两者底层模型权重相同"。
+- **base/ToMBench/cot 0.7459 与 DashScope/cot 0.7538 几乎持平**（差 0.79pp），confirms §8.9 的诊断"两者底层模型权重相同"。
+- **v10 在 ToMBench/cot 仍然最高 (0.7573)**，但 base 修复后差距缩小到 1.14pp（v1 时差距 1.86pp，但 v1 base 被截断不公平）。
 """)
     md.append("\n---\n")
     md.append("## 1. ToMBench 分任务详表\n")
