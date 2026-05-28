@@ -25,6 +25,13 @@ output/
 # Eval files have known sizes (~2-3 MB), train data ~100 MB total,
 # all small enough for git (no need for git-lfs).
 
+# Per-experiment output (eval results + reports). Each is ~10-20 MB total
+# and serves as the canonical artifact backing the experiment's report.
+!experiment/*/output/
+!experiment/*/output/**/*.json
+!experiment/*/output/**/*.md
+!experiment/*/output/**/*.jsonl
+
 # Local deployment env
 configs/deploy.env
 

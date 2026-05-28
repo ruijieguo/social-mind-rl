@@ -1,0 +1,254 @@
+# Qwen3-8B full-eval — 8 vLLM instances on a single 8×H800 host (172.16.120.191).
+#
+# Layout:
+#   GPU 0..3 → 8B base    (ports 8001..8004)
+#   GPU 4..7 → 8B v1.0    (ports 8005..8008)
+#
+# All 4 instances of the same model share `--served-model-name`, so a single
+# OpenAI-compatible client can round-robin across endpoints transparently.
+#
+# Up:    docker compose -f docker/docker-compose.yml --env-file ../configs/deploy.env.191 up -d
+# Logs:  docker compose -f docker/docker-compose.yml logs -f serve_base_0
+# Down:  docker compose -f docker/docker-compose.yml down
+
+x-base-serve: &base-serve
+  image: ${VLLM_IMAGE:-vllm/vllm-openai:v0.11.0}
+  ipc: host
+  shm_size: 16gb
+  restart: unless-stopped
+  volumes:
+    - /model:/model:ro
+    - /home/h800/xujiayuan/models:/home/h800/xujiayuan/models:ro
+
+services:
+  serve_base_0:
+    <<: *base-serve
+    container_name: qwen3-eval-base-0
+    command:
+      - "--model"
+      - "${BASE_MODEL_PATH:-/model/Qwen3-8B}"
+      - "--served-model-name"
+      - "${BASE_MODEL_NAME:-qwen3-8b-base}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8001"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "${MAX_MODEL_LEN:-8192}"
+      - "--gpu-memory-utilization"
+      - "${GPU_UTIL:-0.85}"
+      - "--disable-log-requests"
+    ports:
+      - "8001:8001"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+
+  serve_base_1:
+    <<: *base-serve
+    container_name: qwen3-eval-base-1
+    command:
+      - "--model"
+      - "${BASE_MODEL_PATH:-/model/Qwen3-8B}"
+      - "--served-model-name"
+      - "${BASE_MODEL_NAME:-qwen3-8b-base}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8002"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "${MAX_MODEL_LEN:-8192}"
+      - "--gpu-memory-utilization"
+      - "${GPU_UTIL:-0.85}"
+      - "--disable-log-requests"
+    ports:
+      - "8002:8002"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["1"]
+              capabilities: [gpu]
+
+  serve_base_2:
+    <<: *base-serve
+    container_name: qwen3-eval-base-2
+    command:
+      - "--model"
+      - "${BASE_MODEL_PATH:-/model/Qwen3-8B}"
+      - "--served-model-name"
+      - "${BASE_MODEL_NAME:-qwen3-8b-base}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8003"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "${MAX_MODEL_LEN:-8192}"
+      - "--gpu-memory-utilization"
+      - "${GPU_UTIL:-0.85}"
+      - "--disable-log-requests"
+    ports:
+      - "8003:8003"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["2"]
+              capabilities: [gpu]
+
+  serve_base_3:
+    <<: *base-serve
+    container_name: qwen3-eval-base-3
+    command:
+      - "--model"
+      - "${BASE_MODEL_PATH:-/model/Qwen3-8B}"
+      - "--served-model-name"
+      - "${BASE_MODEL_NAME:-qwen3-8b-base}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8004"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "${MAX_MODEL_LEN:-8192}"
+      - "--gpu-memory-utilization"
+      - "${GPU_UTIL:-0.85}"
+      - "--disable-log-requests"
+    ports:
+      - "8004:8004"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["3"]
+              capabilities: [gpu]
+
+  serve_v10_0:
+    <<: *base-serve
+    container_name: qwen3-eval-v10-0
+    command:
+      - "--model"
+      - "${V10_MODEL_PATH}"
+      - "--served-model-name"
+      - "${V10_MODEL_NAME:-qwen3-8b-v10}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8005"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "${MAX_MODEL_LEN:-8192}"
+      - "--gpu-memory-utilization"
+      - "${GPU_UTIL:-0.85}"
+      - "--disable-log-requests"
+    ports:
+      - "8005:8005"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["4"]
+              capabilities: [gpu]
+
+  serve_v10_1:
+    <<: *base-serve
+    container_name: qwen3-eval-v10-1
+    command:
+      - "--model"
+      - "${V10_MODEL_PATH}"
+      - "--served-model-name"
+      - "${V10_MODEL_NAME:-qwen3-8b-v10}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8006"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "${MAX_MODEL_LEN:-8192}"
+      - "--gpu-memory-utilization"
+      - "${GPU_UTIL:-0.85}"
+      - "--disable-log-requests"
+    ports:
+      - "8006:8006"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["5"]
+              capabilities: [gpu]
+
+  serve_v10_2:
+    <<: *base-serve
+    container_name: qwen3-eval-v10-2
+    command:
+      - "--model"
+      - "${V10_MODEL_PATH}"
+      - "--served-model-name"
+      - "${V10_MODEL_NAME:-qwen3-8b-v10}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8007"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "${MAX_MODEL_LEN:-8192}"
+      - "--gpu-memory-utilization"
+      - "${GPU_UTIL:-0.85}"
+      - "--disable-log-requests"
+    ports:
+      - "8007:8007"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["6"]
+              capabilities: [gpu]
+
+  serve_v10_3:
+    <<: *base-serve
+    container_name: qwen3-eval-v10-3
+    command:
+      - "--model"
+      - "${V10_MODEL_PATH}"
+      - "--served-model-name"
+      - "${V10_MODEL_NAME:-qwen3-8b-v10}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8008"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--max-model-len"
+      - "${MAX_MODEL_LEN:-8192}"
+      - "--gpu-memory-utilization"
+      - "${GPU_UTIL:-0.85}"
+      - "--disable-log-requests"
+    ports:
+      - "8008:8008"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["7"]
+              capabilities: [gpu]
