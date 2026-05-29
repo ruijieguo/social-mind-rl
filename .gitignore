@@ -88,3 +88,6 @@ experiment/qwen3.6-27b/data/*.jsonl
 # API keys / secrets
 .env
 *.env
+
+# Per-experiment response cache (large raw responses; not a committed artifact)
+experiment/*/output/cache/
