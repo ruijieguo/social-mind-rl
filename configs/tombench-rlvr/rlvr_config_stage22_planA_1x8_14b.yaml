@@ -137,8 +137,12 @@ actor_train:
     num_train_epochs: 50
   data_args:
     template: qwen3
+    # FIXED data (see scripts/data/build_planA_data.py + data_audit_2026-05-30.md):
+    #   - re-tagged all records tom_mcq → recovers the 26% (ExploreToM + HOT
+    #     higher-order ToM) that v3.1 silently dropped via the tag→math_rule filter
+    #   - gold rebalanced A=45%/D=10% → ~25% each (removes the position prior)
     file_name:
-      - /mnt/data/tom_train_stage14_weighted.jsonl
+      - /mnt/data/tom_train_stage22_planA.jsonl
     domain_interleave_probs:
       tom_mcq: 1.0
     dataset_dir: /mnt/data
