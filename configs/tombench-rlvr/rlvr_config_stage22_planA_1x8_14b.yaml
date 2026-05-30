@@ -83,10 +83,11 @@ norm_std_type: ~
 
 max_len_mask: true
 difficulty_mask: true
-# From BASE (not Stage 12) the ToMBench-train pass rate is lower and more spread,
-# so loosen the learnable-middle window vs Stage 14's (0.15, 0.80).
-difficulty_low_threshold: 0.10
-difficulty_high_threshold: 0.90
+# From BASE the pass rate is lower and more spread, and we just recovered the
+# HARDEST data (ExploreToM + HOT). Use Stage 9's proven-loose window so hard-but-
+# learnable items (1/8 correct = 0.125) aren't masked out. (Stage 9: 0.05/0.97.)
+difficulty_low_threshold: 0.05
+difficulty_high_threshold: 0.95
 error_max_len_clip: false
 
 difficulty_loss_weight: false
@@ -177,7 +178,8 @@ actor_infer:
   strategy_args:
     strategy_name: vllm
     strategy_config:
-      gpu_memory_utilization: 0.60   # +0.05 vs stage14 — longer KV cache (4096 ctx)
+      gpu_memory_utilization: 0.45   # Stage 9's proven value for 4096 ctx colocated
+                                     # (train+ref+infer on the same 8 GPUs). 0.60 risks OOM.
       block_size: 16
       max_model_len: 4096            # prompt 1024 + response 2048, headroom
       tensor_parallel_size: 2
