@@ -1,0 +1,175 @@
+# Qwen3-14B full-eval — 8 vLLM instances (TP=1) across ALL 8 H800 GPUs of
+# host 172.16.120.181 / h800-3. GPUs 0-3 freed up, so this eval now saturates
+# the whole node (8 endpoints) to ~2x throughput vs the original 4-GPU layout.
+#
+#   GPU g -> port 800(g+1)   (GPU 0->8001 ... GPU 7->8008)
+#
+# All 8 serve THE SAME model (MODEL_PATH / SERVED_NAME from the env-file). Brought
+# up once per model (base -> v3.5 -> v3.1), all 4 benchmarks against it, then down.
+#
+# Up:    docker compose -f docker/docker-compose.yml --env-file ../configs/deploy.env.181 up -d
+# Down:  docker compose -f docker/docker-compose.yml --env-file ../configs/deploy.env.181 down
+
+x-serve: &serve
+  image: qwen3-tom-serve-eval-dp4:latest
+  working_dir: /workspace
+  network_mode: host
+  volumes:
+    - ${MODEL_HOST_DIR:-/data_nvme/grj-projects}:${MODEL_HOST_DIR:-/data_nvme/grj-projects}:ro
+  ipc: host
+  shm_size: 16gb
+  restart: "no"
+
+services:
+  serve_0:
+    <<: *serve
+    container_name: qwen3-14b-eval-0
+    environment:
+      INSTANCE_IDX: 0
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: ${MODEL_PATH}
+      SERVED_NAME: ${SERVED_NAME}
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-16384}
+      TENSOR_PARALLEL: 1
+      GPU_UTIL: ${GPU_UTIL:-0.85}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+
+  serve_1:
+    <<: *serve
+    container_name: qwen3-14b-eval-1
+    environment:
+      INSTANCE_IDX: 1
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: ${MODEL_PATH}
+      SERVED_NAME: ${SERVED_NAME}
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-16384}
+      TENSOR_PARALLEL: 1
+      GPU_UTIL: ${GPU_UTIL:-0.85}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["1"]
+              capabilities: [gpu]
+
+  serve_2:
+    <<: *serve
+    container_name: qwen3-14b-eval-2
+    environment:
+      INSTANCE_IDX: 2
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: ${MODEL_PATH}
+      SERVED_NAME: ${SERVED_NAME}
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-16384}
+      TENSOR_PARALLEL: 1
+      GPU_UTIL: ${GPU_UTIL:-0.85}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["2"]
+              capabilities: [gpu]
+
+  serve_3:
+    <<: *serve
+    container_name: qwen3-14b-eval-3
+    environment:
+      INSTANCE_IDX: 3
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: ${MODEL_PATH}
+      SERVED_NAME: ${SERVED_NAME}
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-16384}
+      TENSOR_PARALLEL: 1
+      GPU_UTIL: ${GPU_UTIL:-0.85}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["3"]
+              capabilities: [gpu]
+
+  serve_4:
+    <<: *serve
+    container_name: qwen3-14b-eval-4
+    environment:
+      INSTANCE_IDX: 4
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: ${MODEL_PATH}
+      SERVED_NAME: ${SERVED_NAME}
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-16384}
+      TENSOR_PARALLEL: 1
+      GPU_UTIL: ${GPU_UTIL:-0.85}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["4"]
+              capabilities: [gpu]
+
+  serve_5:
+    <<: *serve
+    container_name: qwen3-14b-eval-5
+    environment:
+      INSTANCE_IDX: 5
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: ${MODEL_PATH}
+      SERVED_NAME: ${SERVED_NAME}
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-16384}
+      TENSOR_PARALLEL: 1
+      GPU_UTIL: ${GPU_UTIL:-0.85}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["5"]
+              capabilities: [gpu]
+
+  serve_6:
+    <<: *serve
+    container_name: qwen3-14b-eval-6
+    environment:
+      INSTANCE_IDX: 6
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: ${MODEL_PATH}
+      SERVED_NAME: ${SERVED_NAME}
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-16384}
+      TENSOR_PARALLEL: 1
+      GPU_UTIL: ${GPU_UTIL:-0.85}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["6"]
+              capabilities: [gpu]
+
+  serve_7:
+    <<: *serve
+    container_name: qwen3-14b-eval-7
+    environment:
+      INSTANCE_IDX: 7
+      SERVE_PORT_BASE: ${SERVE_PORT_BASE:-8001}
+      MODEL_PATH: ${MODEL_PATH}
+      SERVED_NAME: ${SERVED_NAME}
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN:-16384}
+      TENSOR_PARALLEL: 1
+      GPU_UTIL: ${GPU_UTIL:-0.85}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["7"]
+              capabilities: [gpu]
+

@@ -13,10 +13,21 @@ set -euo pipefail
 
 STAGE="${STAGE:-stage1}"
 
-# Route 27B stages to the dedicated experiment/qwen3.6-27b/configs/ tree;
-# everything else uses the project-wide configs/tombench-rlvr/. This keeps
-# the 27B work isolated from the 14B/8B production configs.
-if [[ "${STAGE}" == *_27b* ]]; then
+# Route experiment-scoped stages to their own configs tree; everything else
+# uses the project-wide configs/tombench-rlvr/. This keeps experimental work
+# (27B, 32B) isolated from the 14B/8B production configs.
+if [[ "${STAGE}" == *_qwen3_32b* ]]; then
+  CONFIG_DIR="/workspace/experiment/qwen3-32b/configs"
+elif [[ "${STAGE}" == *_qwen3_14b* ]]; then
+  # Plan A (Stage 22): unshackle thinking budget + KL anchor base + fixed data.
+  CONFIG_DIR="/workspace/experiment/qwen3-14b/configs"
+  # Reward params (l_max/aggregation/...) are DROPPED from the YAML by ROLL's
+  # RewardConfig dataclass, so the worker reads them from this JSON override.
+  export TOM_REWARD_OVERRIDE="${TOM_REWARD_OVERRIDE:-${CONFIG_DIR}/tom_reward_planA.json}"
+  echo "  TOM_REWARD_OVERRIDE: ${TOM_REWARD_OVERRIDE}"
+elif [[ "${STAGE}" == *_27b* ]]; then
+  # Legacy: Qwen3.5-27B abandoned (TE _extra_state corruption with GDN).
+  # Kept for archival; no active STAGE matches this route.
   CONFIG_DIR="/workspace/experiment/qwen3.6-27b/configs"
 else
   CONFIG_DIR="/workspace/configs/tombench-rlvr"
@@ -115,6 +126,23 @@ case "${STAGE}" in
     test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
       || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
     ;;
+  stage20_1x8_14b)
+    # Stage 20 14B: v3.6 = precision distillation v3. Init v3.5 ckpt-120.
+    DATA_FILE="/mnt/data/tom_train_stage20.jsonl"
+    test -f /mnt/data/hitom_eval_val200.jsonl \
+      || { echo "ERROR: /mnt/data/hitom_eval_val200.jsonl missing"; exit 1; }
+    test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
+      || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
+    ;;
+  stage21_1x8_14b)
+    # Stage 21 14B: v3.7 = distill v4 (A+B fusion). vote≥2, 1731 records,
+    # 4 attack points (Knowledge/Belief/EmoBench/SocialIQA). Init v3.6 ckpt-79.
+    DATA_FILE="/mnt/data/tom_train_stage21.jsonl"
+    test -f /mnt/data/hitom_eval_val200.jsonl \
+      || { echo "ERROR: /mnt/data/hitom_eval_val200.jsonl missing"; exit 1; }
+    test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
+      || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
+    ;;
   stage1_27b_1x8|stage1_27b_1x8_smoke)
     # Stage 1 27B (v4.0): mirror of 14B Stage 16 (v3.2) recipe on Qwen3.6-27B
     # base. TP=4 (27B in TP=2 OOMs on 80GB H800). Same data + validation
@@ -124,6 +152,26 @@ case "${STAGE}" in
       || { echo "ERROR: /mnt/data/hitom_eval_val200.jsonl missing"; exit 1; }
     test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
       || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
+    ;;
+  stage1_qwen3_32b_1x8|stage1_qwen3_32b_1x8_smoke)
+    # Stage 1 Qwen3-32B: pivot from abandoned Qwen3.5-27B (TE _extra_state
+    # corruption with GDN). Qwen3-32B is dense (no GDN/Mamba/fla), bypasses
+    # the offload corruption. Recipe: 14B Stage 16 (v3.2) directly. TP=4 +
+    # sequence_parallel + distributed_optimizer + CPU optim offload.
+    # _smoke variant runs 3 steps for pre-flight.
+    DATA_FILE="/mnt/data/tom_train_stage16.jsonl"
+    test -f /mnt/data/hitom_eval_val200.jsonl \
+      || { echo "ERROR: /mnt/data/hitom_eval_val200.jsonl missing"; exit 1; }
+    test -f /mnt/data/emobench_eu_emotion_val100.jsonl \
+      || { echo "ERROR: /mnt/data/emobench_eu_emotion_val100.jsonl missing"; exit 1; }
+    ;;
+  stage22_qwen3_14b|stage22_qwen3_14b_smoke)
+    # Stage 22 14B (v4.0 "Plan A"): unshackle thinking budget (response_length
+    # 256→2048, reward weighted_sum + l_max 2048 via JSON override) + KL anchor
+    # to BASE + FIXED data (re-tagged → 26% ExploreToM/HOT recovered, gold
+    # rebalanced ~25% each). Init from base Qwen3-14B. Config routes to
+    # experiment/qwen3-14b/configs. _smoke variant for a 3-step pre-flight.
+    DATA_FILE="/mnt/data/tom_train_stage22_planA.jsonl"
     ;;
   sft_stage9_14b|sft_stage9_8b)
     # SFT stages use the GPT-5.5 reasoning traces dataset

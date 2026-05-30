@@ -198,3 +198,30 @@ def test_weighted_sum_correct_but_format_off_still_partial():
     # Only r_len contributes
     assert 0.05 < r_total < 0.15
 
+
+
+# --- apply_reward_override (JSON override; ROLL drops YAML reward keys) -------
+apply_reward_override = _mod.apply_reward_override
+
+
+def test_override_none_returns_base_unchanged():
+    base = {"l_min": 8.0, "l_max": 256.0, "aggregation": "multiplicative"}
+    assert apply_reward_override(base, None) is base
+    assert apply_reward_override(base, {}) is base
+
+
+def test_override_merges_and_coerces_types():
+    base = {
+        "l_min": 8.0, "l_max": 256.0, "k": 50.0, "l_max_long": 256.0,
+        "l_max_short": 256.0, "aggregation": "multiplicative",
+        "r_fmt_weight": 0.05, "r_out_weight": 0.85, "r_len_weight": 0.10,
+    }
+    out = apply_reward_override(base, {
+        "l_max": 2048, "l_max_long": 4096, "l_max_short": 512,
+        "aggregation": "weighted_sum", "r_out_weight": 0.90, "r_len_weight": 0.05,
+    })
+    assert out["l_max"] == 2048.0 and isinstance(out["l_max"], float)
+    assert out["aggregation"] == "weighted_sum"
+    assert out["r_out_weight"] == 0.90 and out["r_len_weight"] == 0.05
+    assert out["l_min"] == 8.0  # untouched key preserved
+    assert base["l_max"] == 256.0  # input not mutated

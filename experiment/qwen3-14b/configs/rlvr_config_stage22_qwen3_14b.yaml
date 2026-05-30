@@ -212,7 +212,12 @@ rewards:
       template: qwen3
     world_size: 8
     infer_batch_size: 16
-    # weighted_sum so length is a SOFT 5% preference, never a gate that zeros a
+    # ⚠️ The reward params below are DROPPED by ROLL's RewardConfig dataclass
+    # (it has no l_max/aggregation/... fields). The AUTHORITATIVE values live in
+    # configs/tom_reward_planA.json, loaded by the worker via TOM_REWARD_OVERRIDE
+    # (entrypoint sets it). These YAML lines are kept only as documentation.
+    # VERIFY at launch: grep '[tom_mcq_reward] resolved' in the train log.
+    # weighted_sum makes length a SOFT 5% preference, never a gate that zeros a
     # correct answer (the v3.1 multiplicative trap). r_out (correctness) dominates.
     aggregation: weighted_sum
     r_fmt_weight: 0.05

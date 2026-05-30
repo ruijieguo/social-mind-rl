@@ -9,9 +9,11 @@ are exposed at module level and importable without the full ROLL stack
 """
 from __future__ import annotations
 import json
+import json
 import math
+import os
 import re
-from typing import Tuple
+from typing import Optional, Tuple
 
 # Guard ROLL imports so pure functions are testable in environments
 # without the full ROLL/CUDA stack (e.g. macOS DEV container).
@@ -108,6 +110,29 @@ def tom_mcq_reward_fn(
     return r_fmt, r_out, r_len, r_total
 
 
+def apply_reward_override(params: dict, overrides: Optional[dict]) -> dict:
+    """Merge a JSON override dict into params (pure; no I/O).
+
+    ROLL's ``RewardConfig`` dataclass silently drops unknown YAML keys
+    (l_min/l_max/k/l_max_long/l_max_short/aggregation/r_*_weight), so the reward
+    params can only be set reliably via this override file, NOT the YAML rewards
+    block. Numeric keys are cast to float, aggregation to str; absent keys are
+    left unchanged.
+    """
+    if not overrides:
+        return params
+    result = dict(params)
+    for fkey in (
+        "l_min", "l_max", "k", "l_max_long", "l_max_short",
+        "r_fmt_weight", "r_out_weight", "r_len_weight",
+    ):
+        if fkey in overrides:
+            result[fkey] = float(overrides[fkey])
+    if "aggregation" in overrides:
+        result["aggregation"] = str(overrides["aggregation"])
+    return result
+
+
 class TomMcqRewardWorker(Worker):
     """RLVR reward worker for ToM MCQ with R_fmt × R_out × R_len reward.
 
@@ -127,16 +152,44 @@ class TomMcqRewardWorker(Worker):
         self.tokenizer = default_tokenizer_provider(
             model_args=self.worker_config.model_args
         )
-        self.l_min = float(getattr(self.worker_config, "l_min", 8))
-        self.l_max = float(getattr(self.worker_config, "l_max", 256))
-        self.l_max_long = float(getattr(self.worker_config, "l_max_long", self.l_max))
-        self.l_max_short = float(getattr(self.worker_config, "l_max_short", self.l_max))
-        self.k = float(getattr(self.worker_config, "k", 50))
-        # Stage 9+: weighted-sum reward aggregation (vs legacy multiplicative)
-        self.aggregation = str(getattr(self.worker_config, "aggregation", "multiplicative"))
-        self.r_fmt_weight = float(getattr(self.worker_config, "r_fmt_weight", 0.05))
-        self.r_out_weight = float(getattr(self.worker_config, "r_out_weight", 0.85))
-        self.r_len_weight = float(getattr(self.worker_config, "r_len_weight", 0.10))
+        # ROLL's RewardConfig drops unknown YAML reward keys, so these getattr calls
+        # return the BUILT-IN DEFAULTS (l_max=256, multiplicative) regardless of the
+        # YAML. The authoritative values come from a JSON override file written next to
+        # the stage config (env TOM_REWARD_OVERRIDE), merged below. The worker LOGS the
+        # resolved params at INFO — grep '[tom_mcq_reward] resolved' to VERIFY (don't
+        # trust the YAML). See memory: roll_rewardconfig_drops_custom_keys.
+        _base = {
+            "l_min": float(getattr(self.worker_config, "l_min", 8)),
+            "l_max": float(getattr(self.worker_config, "l_max", 256)),
+            "k": float(getattr(self.worker_config, "k", 50)),
+            "l_max_long": float(getattr(self.worker_config, "l_max_long", 256)),
+            "l_max_short": float(getattr(self.worker_config, "l_max_short", 256)),
+            "aggregation": str(getattr(self.worker_config, "aggregation", "multiplicative")),
+            "r_fmt_weight": float(getattr(self.worker_config, "r_fmt_weight", 0.05)),
+            "r_out_weight": float(getattr(self.worker_config, "r_out_weight", 0.85)),
+            "r_len_weight": float(getattr(self.worker_config, "r_len_weight", 0.10)),
+        }
+        override_path = os.environ.get(
+            "TOM_REWARD_OVERRIDE", "/workspace/configs/process-reward/tom_reward_override.json"
+        )
+        if os.path.exists(override_path):
+            try:
+                with open(override_path) as _f:
+                    _base = apply_reward_override(_base, json.load(_f))
+                logger.info(f"[tom_mcq_reward] resolved params from override {override_path}: {_base}")
+            except Exception as _e:  # noqa: BLE001
+                logger.error(f"[tom_mcq_reward] failed to load override {override_path}: {_e}; using defaults {_base}")
+        else:
+            logger.info(f"[tom_mcq_reward] no override at {override_path}; using YAML/defaults: {_base}")
+        self.l_min = _base["l_min"]
+        self.l_max = _base["l_max"]
+        self.k = _base["k"]
+        self.l_max_long = _base["l_max_long"]
+        self.l_max_short = _base["l_max_short"]
+        self.aggregation = _base["aggregation"]
+        self.r_fmt_weight = _base["r_fmt_weight"]
+        self.r_out_weight = _base["r_out_weight"]
+        self.r_len_weight = _base["r_len_weight"]
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
     def initialize(self, pipeline_config):

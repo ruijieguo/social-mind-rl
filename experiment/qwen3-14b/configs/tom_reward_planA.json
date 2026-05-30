@@ -1,0 +1,12 @@
+{
+  "_comment": "Plan A (Stage 22) reward params. AUTHORITATIVE — ROLL's RewardConfig silently drops these keys from the YAML rewards block, so the worker reads them from THIS file (env TOM_REWARD_OVERRIDE). Verify in the train log: grep '[tom_mcq_reward] resolved'. See memory roll_rewardconfig_drops_custom_keys.",
+  "l_min": 8,
+  "l_max": 2048,
+  "l_max_long": 4096,
+  "l_max_short": 512,
+  "k": 50,
+  "aggregation": "weighted_sum",
+  "r_fmt_weight": 0.05,
+  "r_out_weight": 0.90,
+  "r_len_weight": 0.05
+}
