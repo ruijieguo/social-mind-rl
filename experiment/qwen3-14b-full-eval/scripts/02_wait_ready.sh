@@ -28,8 +28,11 @@ for port in $PORTS; do
   done
 done
 
-echo "=== All 4 endpoints ready ==="
+echo "=== All endpoints ready ==="
+# Cosmetic only — must never fail the caller (pipefail + set -e safe).
+set +e +o pipefail
 for port in $PORTS; do
-  m=$(curl -s "http://127.0.0.1:${port}/v1/models" | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"][0]["id"])' 2>/dev/null || echo "?")
-  echo "  :$port  $m"
+  m=$(curl -s "http://127.0.0.1:${port}/v1/models" 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"][0]["id"])' 2>/dev/null)
+  echo "  :$port  ${m:-?}"
 done
+exit 0
